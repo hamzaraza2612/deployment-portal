@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../lib/api";
 import type { ContainerInfo, ServerRecord } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
+import { useConfirm } from "../hooks/useConfirm";
 
 function containerStateClass(state: string): string {
   if (state === "running") return "badge-SUCCESS";
@@ -18,6 +19,7 @@ function ServerContainers({ server }: { server: ServerRecord }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const { confirm, modal } = useConfirm();
 
   function load() {
     setLoading(true);
@@ -32,11 +34,19 @@ function ServerContainers({ server }: { server: ServerRecord }) {
   useEffect(load, [server.id]);
 
   async function runAction(container: ContainerInfo, action: "start" | "stop" | "restart" | "recreate") {
-    if (action === "stop" && !confirm(`Stop ${container.name}? The app will become unavailable until it's started again.`)) {
-      return;
+    if (action === "stop") {
+      const ok = await confirm(
+        `Stop ${container.name}? The app will become unavailable until it's started again.`,
+        { title: "Stop container", confirmLabel: "Stop", danger: true }
+      );
+      if (!ok) return;
     }
-    if (action === "recreate" && !confirm(`Recreate ${container.name}? This restarts it with the current image/config.`)) {
-      return;
+    if (action === "recreate") {
+      const ok = await confirm(
+        `Recreate ${container.name}? This runs "docker compose up -d --force-recreate" for just this service — it does not touch volumes or other services.`,
+        { title: "Recreate container", confirmLabel: "Recreate", danger: true }
+      );
+      if (!ok) return;
     }
     setBusyId(container.id);
     setError(null);
@@ -52,6 +62,7 @@ function ServerContainers({ server }: { server: ServerRecord }) {
 
   return (
     <div className="card">
+      {modal}
       <div className="page-header" style={{ marginBottom: 10 }}>
         <div>
           <strong>{server.name}</strong>

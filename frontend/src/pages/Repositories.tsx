@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError } from "../lib/api";
 import type { RepositoryRecord } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
+import { useConfirm } from "../hooks/useConfirm";
 
 interface FormState {
   id: string | null;
@@ -22,6 +23,7 @@ export function Repositories() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const { confirm, modal } = useConfirm();
 
   function load() {
     api
@@ -65,7 +67,12 @@ export function Repositories() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this repository? Existing deployment history will be kept.")) return;
+    const ok = await confirm("Delete this repository? Existing deployment history will be kept.", {
+      title: "Delete repository",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.delete(`/repositories/${id}`);
       load();
@@ -76,6 +83,7 @@ export function Repositories() {
 
   return (
     <div>
+      {modal}
       <div className="page-header">
         <div>
           <h1>Repositories</h1>

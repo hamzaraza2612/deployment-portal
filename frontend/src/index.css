@@ -465,6 +465,37 @@ textarea:focus {
   justify-content: flex-end;
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 7, 14, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.modal-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.modal-card p {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0 0 18px;
+}
+
 .spinner {
   display: inline-block;
   width: 14px;
