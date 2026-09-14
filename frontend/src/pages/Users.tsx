@@ -3,6 +3,7 @@ import { api, ApiError } from "../lib/api";
 import type { Role, UserRecord } from "../lib/types";
 import { formatDateTime } from "../components/Badge";
 import { useAuth } from "../context/AuthContext";
+import { useConfirm } from "../hooks/useConfirm";
 
 interface FormState {
   email: string;
@@ -20,6 +21,7 @@ export function Users() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const { confirm, modal } = useConfirm();
 
   function load() {
     api
@@ -56,7 +58,8 @@ export function Users() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this user?")) return;
+    const ok = await confirm("Delete this user?", { title: "Delete user", confirmLabel: "Delete", danger: true });
+    if (!ok) return;
     try {
       await api.delete(`/users/${id}`);
       load();
@@ -67,6 +70,7 @@ export function Users() {
 
   return (
     <div>
+      {modal}
       <div className="page-header">
         <div>
           <h1>Users</h1>

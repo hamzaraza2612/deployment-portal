@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError } from "../lib/api";
 import type { AuthType, ServerRecord } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
+import { useConfirm } from "../hooks/useConfirm";
 
 interface FormState {
   id: string | null;
@@ -47,6 +48,7 @@ export function Servers() {
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<Record<string, string>>({});
+  const { confirm, modal } = useConfirm();
 
   function load() {
     api
@@ -126,7 +128,12 @@ export function Servers() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this server? This cannot be undone.")) return;
+    const ok = await confirm("Delete this server? This cannot be undone.", {
+      title: "Delete server",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.delete(`/servers/${id}`);
       load();
@@ -153,6 +160,7 @@ export function Servers() {
 
   return (
     <div>
+      {modal}
       <div className="page-header">
         <div>
           <h1>Servers</h1>
