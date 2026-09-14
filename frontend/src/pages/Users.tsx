@@ -1,59 +1,104 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError } from "../lib/api";
-import type { Role, UserRecord } from "../lib/types";
+import type { Role, ServerRecord, UserRecord } from "../lib/types";
 import { formatDateTime } from "../components/Badge";
 import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../hooks/useConfirm";
 
 interface FormState {
+  id: string | null;
   email: string;
   name: string;
   password: string;
   role: Role;
+  environments: string[];
 }
 
-const EMPTY_FORM: FormState = { email: "", name: "", password: "", role: "VIEWER" };
+const EMPTY_FORM: FormState = {
+  id: null,
+  email: "",
+  name: "",
+  password: "",
+  role: "VIEWER",
+  environments: [],
+};
 
 export function Users() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [servers, setServers] = useState<ServerRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const { confirm, modal } = useConfirm();
 
+  const knownEnvironments = Array.from(new Set(servers.map((s) => s.environment))).sort();
+
   function load() {
     api
       .get<UserRecord[]>("/users")
       .then(setUsers)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load users"));
+    api.get<ServerRecord[]>("/servers").then(setServers).catch(() => undefined);
   }
 
   useEffect(load, []);
+
+  function openCreate() {
+    setForm(EMPTY_FORM);
+    setFormOpen(true);
+  }
+
+  function openEdit(user: UserRecord) {
+    setForm({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      password: "",
+      role: user.role,
+      environments: user.allowedEnvironments,
+    });
+    setFormOpen(true);
+  }
+
+  function toggleEnvironment(env: string) {
+    setForm((prev) => ({
+      ...prev,
+      environments: prev.environments.includes(env)
+        ? prev.environments.filter((e) => e !== env)
+        : [...prev.environments, env],
+    }));
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSaving(true);
     try {
-      await api.post("/users", form);
-      setForm(EMPTY_FORM);
+      if (form.id) {
+        const payload: Record<string, unknown> = {
+          name: form.name,
+          role: form.role,
+          allowedEnvironments: form.environments,
+        };
+        if (form.password) payload.password = form.password;
+        await api.patch(`/users/${form.id}`, payload);
+      } else {
+        await api.post("/users", {
+          email: form.email,
+          name: form.name,
+          password: form.password,
+          role: form.role,
+          allowedEnvironments: form.environments,
+        });
+      }
       setFormOpen(false);
       load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to create user");
+      setError(err instanceof ApiError ? err.message : "Failed to save user");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleRoleChange(id: string, role: Role) {
-    try {
-      await api.patch(`/users/${id}`, { role });
-      load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to update role");
     }
   }
 
@@ -74,10 +119,12 @@ export function Users() {
       <div className="page-header">
         <div>
           <h1>Users</h1>
-          <div className="page-subtitle">Manage who can access the deployment portal.</div>
+          <div className="page-subtitle">
+            Manage who can access the portal, and which environments they can see.
+          </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setFormOpen((v) => !v)}>
-          {formOpen ? "Cancel" : "Add user"}
+        <button className="btn btn-primary" onClick={openCreate}>
+          Add user
         </button>
       </div>
 
@@ -85,7 +132,7 @@ export function Users() {
 
       {formOpen && (
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Add user</h3>
+          <h3 style={{ marginTop: 0 }}>{form.id ? "Edit user" : "Add user"}</h3>
           <form onSubmit={handleSubmit}>
             <div className="form-grid">
               <div className="form-field">
@@ -98,17 +145,18 @@ export function Users() {
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  disabled={!!form.id}
                   required
                 />
               </div>
               <div className="form-field">
-                <label>Password</label>
+                <label>Password {form.id && "(leave blank to keep current)"}</label>
                 <input
                   type="password"
                   minLength={8}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  required
+                  required={!form.id}
                 />
               </div>
               <div className="form-field">
@@ -120,9 +168,50 @@ export function Users() {
                 </select>
               </div>
             </div>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? "Creating…" : "Create user"}
-            </button>
+
+            <div className="form-field">
+              <label>Environments</label>
+              {form.role === "ADMIN" ? (
+                <div className="muted" style={{ fontSize: 13 }}>
+                  Admins automatically have access to every environment.
+                </div>
+              ) : knownEnvironments.length === 0 ? (
+                <div className="muted" style={{ fontSize: 13 }}>
+                  No environments exist yet — add a server under Servers first.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {knownEnvironments.map((env) => (
+                    <label
+                      key={env}
+                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: "normal" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.environments.includes(env)}
+                        onChange={() => toggleEnvironment(env)}
+                      />
+                      {env}
+                    </label>
+                  ))}
+                </div>
+              )}
+              {form.role !== "ADMIN" && form.environments.length === 0 && (
+                <div className="alert alert-info" style={{ marginTop: 10 }}>
+                  With no environment selected, this user won't see any servers, deployments, or history
+                  until you assign at least one.
+                </div>
+              )}
+            </div>
+
+            <div className="row-actions">
+              <button type="button" className="btn" onClick={() => setFormOpen(false)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? "Saving…" : form.id ? "Save user" : "Create user"}
+              </button>
+            </div>
           </form>
         </div>
       )}
@@ -134,6 +223,7 @@ export function Users() {
               <th>Name</th>
               <th>Email</th>
               <th>Role</th>
+              <th>Environments</th>
               <th>Created</th>
               <th></th>
             </tr>
@@ -144,24 +234,23 @@ export function Users() {
                 <td>{u.name}</td>
                 <td className="muted">{u.email}</td>
                 <td>
-                  <select
-                    value={u.role}
-                    onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
-                    disabled={u.id === currentUser?.userId}
-                    style={{ padding: "4px 8px", fontSize: 13 }}
-                  >
-                    <option value="ADMIN">ADMIN</option>
-                    <option value="OPERATOR">OPERATOR</option>
-                    <option value="VIEWER">VIEWER</option>
-                  </select>
+                  <span className={`badge badge-${u.role}`}>{u.role}</span>
+                </td>
+                <td className="muted">
+                  {u.role === "ADMIN" ? "All" : u.allowedEnvironments.join(", ") || "None assigned"}
                 </td>
                 <td className="muted">{formatDateTime(u.createdAt)}</td>
                 <td className="text-right">
-                  {u.id !== currentUser?.userId && (
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(u.id)}>
-                      Delete
+                  <div className="row-actions">
+                    <button className="btn btn-sm" onClick={() => openEdit(u)}>
+                      Edit
                     </button>
-                  )}
+                    {u.id !== currentUser?.userId && (
+                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(u.id)}>
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

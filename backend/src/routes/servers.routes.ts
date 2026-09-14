@@ -2,8 +2,9 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { encrypt } from "../lib/crypto";
 import { testConnection } from "../lib/ssh";
-import { asyncHandler } from "../middleware/errorHandler";
+import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
+import { canAccessEnvironment, serverEnvironmentFilter } from "../lib/access";
 import { createServerSchema, updateServerSchema } from "../validators/schemas";
 import type { ServerConnectionInfo } from "../lib/ssh";
 
@@ -35,8 +36,12 @@ function encodeSecret(auth: { authType: "PASSWORD" | "PRIVATE_KEY" } & Record<st
 
 serversRouter.get(
   "/",
-  asyncHandler(async (_req, res) => {
-    const servers = await prisma.server.findMany({ select: LIST_SELECT, orderBy: { name: "asc" } });
+  asyncHandler(async (req, res) => {
+    const servers = await prisma.server.findMany({
+      where: serverEnvironmentFilter(req.user!),
+      select: LIST_SELECT,
+      orderBy: { name: "asc" },
+    });
     res.json(servers);
   })
 );
@@ -48,6 +53,9 @@ serversRouter.get(
       where: { id: req.params.id },
       select: LIST_SELECT,
     });
+    if (!canAccessEnvironment(req.user!, server.environment)) {
+      throw new HttpError(404, "Server not found");
+    }
     res.json(server);
   })
 );
@@ -120,6 +128,9 @@ serversRouter.post(
   requireRole("ADMIN", "OPERATOR"),
   asyncHandler(async (req, res) => {
     const server = await prisma.server.findUniqueOrThrow({ where: { id: req.params.id } });
+    if (!canAccessEnvironment(req.user!, server.environment)) {
+      throw new HttpError(404, "Server not found");
+    }
     const info: ServerConnectionInfo = {
       host: server.host,
       port: server.port,

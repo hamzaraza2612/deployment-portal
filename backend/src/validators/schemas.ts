@@ -10,12 +10,14 @@ export const createUserSchema = z.object({
   password: z.string().min(8),
   name: z.string().min(1),
   role: z.enum(["ADMIN", "OPERATOR", "VIEWER"]),
+  allowedEnvironments: z.array(z.string().min(1)).default([]),
 });
 
 export const updateUserSchema = z.object({
   name: z.string().min(1).optional(),
   role: z.enum(["ADMIN", "OPERATOR", "VIEWER"]).optional(),
   password: z.string().min(8).optional(),
+  allowedEnvironments: z.array(z.string().min(1)).optional(),
 });
 
 export const serverSecretSchema = z.union([

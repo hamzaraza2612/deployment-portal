@@ -30,13 +30,16 @@ enum DeploymentStatus {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  passwordHash String
-  name         String
-  role         Role         @default(VIEWER)
-  createdAt    DateTime     @default(now())
-  deployments  Deployment[]
+  id                 String       @id @default(cuid())
+  email              String       @unique
+  passwordHash       String
+  name               String
+  role               Role         @default(VIEWER)
+  // Environment tags (matching Server.environment) this user can see, ignored for ADMIN
+  // (who always sees everything). Empty means no environment access yet.
+  allowedEnvironments String[]    @default([])
+  createdAt          DateTime     @default(now())
+  deployments        Deployment[]
 }
 
 model Server {

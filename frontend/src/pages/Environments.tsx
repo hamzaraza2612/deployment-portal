@@ -42,9 +42,13 @@ function ServerContainers({ server }: { server: ServerRecord }) {
       if (!ok) return;
     }
     if (action === "recreate") {
+      const project = container.composeProject ? ` ("${container.composeProject}")` : "";
       const ok = await confirm(
-        `Recreate ${container.name}? This runs "docker compose up -d --force-recreate" for just this service — it does not touch volumes or other services.`,
-        { title: "Recreate container", confirmLabel: "Recreate", danger: true }
+        `Recreate ${container.name}? This runs "docker compose down -v" then "docker compose up -d" for the ` +
+          `WHOLE compose project${project} that owns this container — every service in it is stopped, and ` +
+          `their volumes (including any database/persistent data) are permanently deleted before being ` +
+          `recreated fresh. This cannot be undone.`,
+        { title: "Recreate container", confirmLabel: "Recreate (deletes volumes)", danger: true }
       );
       if (!ok) return;
     }
@@ -145,6 +149,7 @@ function ServerContainers({ server }: { server: ServerRecord }) {
 }
 
 export function Environments() {
+  const { user } = useAuth();
   const [servers, setServers] = useState<ServerRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -178,7 +183,9 @@ export function Environments() {
       {environments.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            No servers yet — add one under Servers and give it an environment name (Dev, Staging, Production…).
+            {user?.role === "ADMIN"
+              ? "No servers yet — add one under Servers and give it an environment name (Dev, Staging, Production…)."
+              : "No environments assigned to your account yet — ask an admin to grant you access under Users."}
           </div>
         </div>
       ) : (

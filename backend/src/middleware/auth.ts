@@ -9,6 +9,7 @@ export interface AuthTokenPayload {
   role: Role;
   email: string;
   name: string;
+  allowedEnvironments: string[];
 }
 
 declare global {

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/auth";
+import { serverEnvironmentFilter } from "../lib/access";
 
 export const dashboardRouter = Router();
 
@@ -9,14 +10,16 @@ dashboardRouter.use(requireAuth);
 
 dashboardRouter.get(
   "/summary",
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const serverFilter = serverEnvironmentFilter(req.user!);
     const [serverCount, repositoryCount, userCount, deploymentCounts, recentDeployments] =
       await Promise.all([
-        prisma.server.count(),
+        prisma.server.count({ where: serverFilter }),
         prisma.repository.count(),
         prisma.user.count(),
-        prisma.deployment.groupBy({ by: ["status"], _count: true }),
+        prisma.deployment.groupBy({ by: ["status"], _count: true, where: { server: serverFilter } }),
         prisma.deployment.findMany({
+          where: { server: serverFilter },
           orderBy: { startedAt: "desc" },
           take: 8,
           select: {
