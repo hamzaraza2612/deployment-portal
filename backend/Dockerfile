@@ -1,5 +1,9 @@
 FROM node:20-alpine
 
+# Prisma's engine binaries need OpenSSL present to detect the right build;
+# without it they crash on startup with a non-JSON error the CLI can't parse.
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
