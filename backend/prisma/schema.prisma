@@ -42,6 +42,8 @@ model User {
 model Server {
   id            String       @id @default(cuid())
   name          String
+  // Free-text environment tag used to group servers in the portal, e.g. "Dev", "Staging", "Production".
+  environment   String       @default("Production")
   host          String
   port          Int          @default(22)
   sshUser       String

@@ -14,6 +14,7 @@ serversRouter.use(requireAuth);
 const LIST_SELECT = {
   id: true,
   name: true,
+  environment: true,
   host: true,
   port: true,
   sshUser: true,
@@ -59,6 +60,7 @@ serversRouter.post(
     const server = await prisma.server.create({
       data: {
         name: body.name,
+        environment: body.environment,
         host: body.host,
         port: body.port,
         sshUser: body.sshUser,
@@ -81,6 +83,7 @@ serversRouter.patch(
     const body = updateServerSchema.parse(req.body);
     const data: Record<string, unknown> = {
       name: body.name,
+      environment: body.environment,
       host: body.host,
       port: body.port,
       sshUser: body.sshUser,

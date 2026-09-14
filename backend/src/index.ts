@@ -8,6 +8,7 @@ import { serversRouter } from "./routes/servers.routes";
 import { repositoriesRouter } from "./routes/repositories.routes";
 import { deploymentsRouter } from "./routes/deployments.routes";
 import { dashboardRouter } from "./routes/dashboard.routes";
+import { containersRouter } from "./routes/containers.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
 const app = express();
@@ -26,6 +27,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/servers", serversRouter);
+app.use("/api/servers", containersRouter);
 app.use("/api/repositories", repositoriesRouter);
 app.use("/api/deployments", deploymentsRouter);
 app.use("/api/dashboard", dashboardRouter);

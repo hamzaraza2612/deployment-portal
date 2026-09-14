@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Servers } from "./pages/Servers";
+import { Environments } from "./pages/Environments";
 import { Repositories } from "./pages/Repositories";
 import { Users } from "./pages/Users";
 import { Deploy } from "./pages/Deploy";
@@ -53,6 +54,7 @@ export default function App() {
         />
         <Route path="/history" element={<History />} />
         <Route path="/history/:id" element={<DeploymentDetail />} />
+        <Route path="/environments" element={<Environments />} />
         <Route path="/servers" element={<Servers />} />
         <Route path="/repositories" element={<Repositories />} />
         <Route
