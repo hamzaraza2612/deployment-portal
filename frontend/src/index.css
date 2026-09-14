@@ -485,6 +485,10 @@ textarea:focus {
   max-width: 420px;
 }
 
+.modal-card-wide {
+  max-width: 800px;
+}
+
 .modal-card h3 {
   margin: 0 0 8px;
   font-size: 16px;

@@ -64,6 +64,70 @@ export async function listContainers(server: Server): Promise<ContainerInfo[]> {
     });
 }
 
+export interface ContainerStats {
+  id: string;
+  cpuPercent: string;
+  memUsage: string;
+  memPercent: string;
+  netIO: string;
+  blockIO: string;
+}
+
+interface DockerStatsLine {
+  ID: string;
+  CPUPerc: string;
+  MemUsage: string;
+  MemPerc: string;
+  NetIO: string;
+  BlockIO: string;
+}
+
+/** One live snapshot per running container (docker stats only reports running ones), like `docker stats --no-stream`. */
+export async function getContainerStats(server: Server): Promise<ContainerStats[]> {
+  const info = toConnectionInfo(server);
+  const result = await execCommandOnServer(info, `docker stats --no-stream --format '{{json .}}'`);
+  if (result.code !== 0) {
+    throw new HttpError(502, `Failed to read container stats: ${result.stderr || result.stdout}`);
+  }
+  return result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const raw = JSON.parse(line) as DockerStatsLine;
+      return {
+        id: raw.ID,
+        cpuPercent: raw.CPUPerc,
+        memUsage: raw.MemUsage,
+        memPercent: raw.MemPerc,
+        netIO: raw.NetIO,
+        blockIO: raw.BlockIO,
+      };
+    });
+}
+
+export async function getContainerLogs(
+  server: Server,
+  containerId: string,
+  tailLines: number
+): Promise<string> {
+  if (!containerId.trim()) {
+    throw new HttpError(400, "containerId is required");
+  }
+  const clamped = Math.min(Math.max(Math.trunc(tailLines) || 200, 20), 2000);
+  const info = toConnectionInfo(server);
+  // Merge stderr into stdout in the remote command itself so log lines come back in the
+  // container's own chronological order rather than split across two separate buffers.
+  const result = await execCommandOnServer(
+    info,
+    `docker logs --tail ${clamped} --timestamps ${shQuote(containerId)} 2>&1`
+  );
+  if (result.code !== 0 && !result.stdout.trim()) {
+    throw new HttpError(502, `Failed to read logs: ${result.stdout || "unknown error"}`);
+  }
+  return result.stdout;
+}
+
 type SimpleAction = "start" | "stop" | "restart";
 
 export async function runContainerAction(
