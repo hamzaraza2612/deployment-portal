@@ -9,7 +9,14 @@ export const usersRouter = Router();
 
 usersRouter.use(requireAuth, requireRole("ADMIN"));
 
-const SAFE_SELECT = { id: true, email: true, name: true, role: true, createdAt: true } as const;
+const SAFE_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  allowedEnvironments: true,
+  createdAt: true,
+} as const;
 
 usersRouter.get(
   "/",
@@ -32,7 +39,13 @@ usersRouter.post(
     }
     const passwordHash = await bcrypt.hash(body.password, 12);
     const user = await prisma.user.create({
-      data: { email: body.email, name: body.name, role: body.role, passwordHash },
+      data: {
+        email: body.email,
+        name: body.name,
+        role: body.role,
+        allowedEnvironments: body.allowedEnvironments,
+        passwordHash,
+      },
       select: SAFE_SELECT,
     });
     res.status(201).json(user);
@@ -46,6 +59,7 @@ usersRouter.patch(
     const data: Record<string, unknown> = {};
     if (body.name) data.name = body.name;
     if (body.role) data.role = body.role;
+    if (body.allowedEnvironments) data.allowedEnvironments = body.allowedEnvironments;
     if (body.password) data.passwordHash = await bcrypt.hash(body.password, 12);
 
     const user = await prisma.user.update({

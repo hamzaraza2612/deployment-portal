@@ -27,10 +27,17 @@ authRouter.post(
       role: user.role,
       email: user.email,
       name: user.name,
+      allowedEnvironments: user.allowedEnvironments,
     });
     setAuthCookie(res, token);
 
-    res.json({ id: user.id, email: user.email, name: user.name, role: user.role });
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      allowedEnvironments: user.allowedEnvironments,
+    });
   })
 );
 

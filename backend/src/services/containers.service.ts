@@ -84,9 +84,12 @@ export async function runContainerAction(
 
 /**
  * "Recreate" only makes sense for containers this portal (or any docker compose
- * setup) started — we read the compose project/service back off the container's
- * own labels and re-run `docker compose up -d --force-recreate` for just that
- * service, the same way the original deploy script restarts a container.
+ * setup) started — we read the compose project directory back off the
+ * container's own labels and run `docker compose down -v && docker compose up
+ * -d` there. This tears down and deletes volumes for every service in that
+ * compose project, not just the clicked container — the caller is expected to
+ * have confirmed that explicitly (the frontend's confirm dialog spells this
+ * out) since it's destructive to any persistent data those services hold.
  */
 export async function recreateContainer(server: Server, containerId: string): Promise<string> {
   if (!containerId.trim()) {
@@ -110,8 +113,7 @@ export async function recreateContainer(server: Server, containerId: string): Pr
   }
 
   const workingDir = labels["com.docker.compose.project.working_dir"];
-  const service = labels["com.docker.compose.service"];
-  if (!workingDir || !service) {
+  if (!workingDir) {
     throw new HttpError(
       400,
       "This container wasn't started with docker compose, so it can't be recreated — use restart instead."
@@ -121,7 +123,8 @@ export async function recreateContainer(server: Server, containerId: string): Pr
   const script = `
 set -e
 cd ${shQuote(workingDir)}
-docker compose up -d --force-recreate --no-deps ${shQuote(service)}
+docker compose down -v
+docker compose up -d
 `.trim();
 
   const result = await execScript(info, script);

@@ -33,10 +33,15 @@ Production, …), set when you add or edit it under **Servers**. The
 **Environments** page groups servers by that tag — click an environment to
 see every server in it, and for each one, the docker containers running
 there (`docker ps -a`, read live over the same SSH connection used for
-deploys), with Start / Stop / Restart / Recreate actions. Recreate reads
-the container's own `docker compose` labels and runs
-`docker compose up -d --force-recreate` for just that service in its
-project directory; containers not started via compose can be
+deploys), with Start / Stop / Restart / Recreate actions.
+
+**Recreate is destructive.** It reads the container's own `docker compose`
+labels to find its project directory, then runs `docker compose down -v`
+followed by `docker compose up -d` there — every service in that compose
+project is stopped and their volumes (databases, any persistent data) are
+permanently deleted before being brought back up fresh. It acts on the
+whole project, not just the clicked container. The confirm dialog spells
+this out before anything runs. Containers not started via compose can be
 started/stopped/restarted but not recreated.
 
 ## Architecture
@@ -55,11 +60,21 @@ started/stopped/restarted but not recreated.
 
 ## Roles
 
-- **Admin** — manage servers, repositories, and users; can also deploy.
+- **Admin** — manage servers, repositories, and users; can also deploy; sees
+  every environment.
 - **Operator** — can trigger deployments and test server connections, but
   cannot manage servers/repositories/users.
 - **Viewer** — read-only: dashboard, server/repository lists, deployment
   history.
+
+Operators and Viewers only see what's inside the environment(s) they're
+assigned under **Users** — their dashboard, server list, the Environments
+page, deploy wizard, and deployment history are all scoped to it, and the
+API enforces the same scoping server-side (not just hidden in the UI). A
+user with no environment assigned sees nothing until an Admin grants
+access. Repositories (git credentials) aren't environment-scoped — every
+authenticated user who can deploy sees the full repository list, since a
+repo isn't tied to one environment.
 
 ## Running it
 

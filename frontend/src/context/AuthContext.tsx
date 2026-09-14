@@ -28,11 +28,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const response = await api.post<{ id: string; email: string; name: string; role: CurrentUser["role"] }>(
-      "/auth/login",
-      { email, password }
-    );
-    setUser({ userId: response.id, email: response.email, name: response.name, role: response.role });
+    const response = await api.post<{
+      id: string;
+      email: string;
+      name: string;
+      role: CurrentUser["role"];
+      allowedEnvironments: string[];
+    }>("/auth/login", { email, password });
+    setUser({
+      userId: response.id,
+      email: response.email,
+      name: response.name,
+      role: response.role,
+      allowedEnvironments: response.allowedEnvironments,
+    });
   }, []);
 
   const logout = useCallback(async () => {

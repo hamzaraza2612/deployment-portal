@@ -7,6 +7,7 @@ export interface CurrentUser {
   email: string;
   name: string;
   role: Role;
+  allowedEnvironments: string[];
 }
 
 export interface UserRecord {
@@ -14,6 +15,7 @@ export interface UserRecord {
   email: string;
   name: string;
   role: Role;
+  allowedEnvironments: string[];
   createdAt: string;
 }
 

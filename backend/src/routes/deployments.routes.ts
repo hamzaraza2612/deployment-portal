@@ -4,6 +4,8 @@ import type { DeploymentStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
+import type { AuthTokenPayload } from "../middleware/auth";
+import { canAccessEnvironment, serverEnvironmentFilter } from "../lib/access";
 import {
   browseSchema,
   checkoutBranchSchema,
@@ -25,12 +27,23 @@ deploymentsRouter.use(requireAuth);
 
 const CAN_DEPLOY = ["ADMIN", "OPERATOR"] as const;
 
-async function loadServerAndRepo(serverId: string, repositoryId: string) {
+async function loadServerAndRepo(user: AuthTokenPayload, serverId: string, repositoryId: string) {
   const [server, repository] = await Promise.all([
     prisma.server.findUniqueOrThrow({ where: { id: serverId } }),
     prisma.repository.findUniqueOrThrow({ where: { id: repositoryId } }),
   ]);
+  if (!canAccessEnvironment(user, server.environment)) {
+    throw new HttpError(404, "Server not found");
+  }
   return { server, repository };
+}
+
+async function loadAccessibleServer(user: AuthTokenPayload, serverId: string) {
+  const server = await prisma.server.findUniqueOrThrow({ where: { id: serverId } });
+  if (!canAccessEnvironment(user, server.environment)) {
+    throw new HttpError(404, "Server not found");
+  }
+  return server;
 }
 
 deploymentsRouter.post(
@@ -38,7 +51,7 @@ deploymentsRouter.post(
   requireRole(...CAN_DEPLOY),
   asyncHandler(async (req, res) => {
     const body = fetchBranchesSchema.parse(req.body);
-    const { server, repository } = await loadServerAndRepo(body.serverId, body.repositoryId);
+    const { server, repository } = await loadServerAndRepo(req.user!, body.serverId, body.repositoryId);
     const { branches, gitDir } = await cloneOrPullAndListBranches(server, repository);
     res.json({ branches, gitDir });
   })
@@ -49,7 +62,7 @@ deploymentsRouter.post(
   requireRole(...CAN_DEPLOY),
   asyncHandler(async (req, res) => {
     const body = checkoutBranchSchema.parse(req.body);
-    const { server, repository } = await loadServerAndRepo(body.serverId, body.repositoryId);
+    const { server, repository } = await loadServerAndRepo(req.user!, body.serverId, body.repositoryId);
     await checkoutBranch(server, repository, body.branch);
     res.json({ ok: true, gitDir: targetGitDir(server, repository) });
   })
@@ -60,7 +73,7 @@ deploymentsRouter.get(
   requireRole(...CAN_DEPLOY),
   asyncHandler(async (req, res) => {
     const body = browseSchema.parse({ serverId: req.query.serverId, path: req.query.path });
-    const server = await prisma.server.findUniqueOrThrow({ where: { id: body.serverId } });
+    const server = await loadAccessibleServer(req.user!, body.serverId);
     const entries = await browseDirectory(server, body.path);
     res.json({ path: body.path, entries });
   })
@@ -73,7 +86,7 @@ deploymentsRouter.get(
     const serverId = String(req.query.serverId ?? "");
     const repositoryId = String(req.query.repositoryId ?? "");
     if (!serverId) throw new HttpError(400, "serverId is required");
-    const server = await prisma.server.findUniqueOrThrow({ where: { id: serverId } });
+    const server = await loadAccessibleServer(req.user!, serverId);
     let gitDir: string | undefined;
     if (repositoryId) {
       const repository = await prisma.repository.findUniqueOrThrow({ where: { id: repositoryId } });
@@ -96,6 +109,7 @@ deploymentsRouter.get(
       where: {
         status: statusFilter,
         serverId: typeof serverId === "string" ? serverId : undefined,
+        server: serverEnvironmentFilter(req.user!),
       },
       orderBy: { startedAt: "desc" },
       take: 100,
@@ -125,11 +139,14 @@ deploymentsRouter.get(
     const deployment = await prisma.deployment.findUniqueOrThrow({
       where: { id: req.params.id },
       include: {
-        server: { select: { id: true, name: true, host: true } },
+        server: { select: { id: true, name: true, host: true, environment: true } },
         repository: { select: { id: true, name: true, url: true } },
         triggeredBy: { select: { id: true, name: true, email: true } },
       },
     });
+    if (!canAccessEnvironment(req.user!, deployment.server.environment)) {
+      throw new HttpError(404, "Deployment not found");
+    }
     res.json(deployment);
   })
 );
@@ -139,7 +156,7 @@ deploymentsRouter.post(
   requireRole(...CAN_DEPLOY),
   asyncHandler(async (req, res) => {
     const body = createDeploymentSchema.parse(req.body);
-    const server = await prisma.server.findUniqueOrThrow({ where: { id: body.serverId } });
+    const server = await loadAccessibleServer(req.user!, body.serverId);
     const repository = await prisma.repository.findUniqueOrThrow({ where: { id: body.repositoryId } });
 
     assertPathAllowed(server, body.sourcePath);

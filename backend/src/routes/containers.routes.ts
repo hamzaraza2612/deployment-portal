@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
+import { canAccessEnvironment } from "../lib/access";
 import { listContainers, recreateContainer, runContainerAction } from "../services/containers.service";
 
 export const containersRouter = Router();
@@ -12,6 +13,9 @@ containersRouter.get(
   "/:serverId/containers",
   asyncHandler(async (req, res) => {
     const server = await prisma.server.findUniqueOrThrow({ where: { id: req.params.serverId } });
+    if (!canAccessEnvironment(req.user!, server.environment)) {
+      throw new HttpError(404, "Server not found");
+    }
     const containers = await listContainers(server);
     res.json(containers);
   })
@@ -23,6 +27,9 @@ containersRouter.post(
   asyncHandler(async (req, res) => {
     const action = String(req.body?.action ?? "");
     const server = await prisma.server.findUniqueOrThrow({ where: { id: req.params.serverId } });
+    if (!canAccessEnvironment(req.user!, server.environment)) {
+      throw new HttpError(404, "Server not found");
+    }
     const containerId = req.params.containerId;
 
     if (action === "recreate") {
