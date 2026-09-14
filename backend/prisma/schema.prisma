@@ -1,5 +1,9 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Pin the musl/OpenSSL 3 engine explicitly instead of relying on Prisma's
+  // runtime auto-detection, which can still misfire on Alpine even with
+  // OpenSSL installed.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
