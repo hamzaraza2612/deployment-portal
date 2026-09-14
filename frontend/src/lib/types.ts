@@ -47,6 +47,15 @@ export interface ContainerInfo {
   composeService?: string;
 }
 
+export interface ContainerStats {
+  id: string;
+  cpuPercent: string;
+  memUsage: string;
+  memPercent: string;
+  netIO: string;
+  blockIO: string;
+}
+
 export interface RepositoryRecord {
   id: string;
   name: string;

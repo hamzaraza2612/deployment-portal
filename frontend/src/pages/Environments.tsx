@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../lib/api";
-import type { ContainerInfo, ServerRecord } from "../lib/types";
+import type { ContainerInfo, ContainerStats, ServerRecord } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../hooks/useConfirm";
+import { LogsModal } from "../components/LogsModal";
+
+const STATS_REFRESH_MS = 3000;
 
 function containerStateClass(state: string): string {
   if (state === "running") return "badge-SUCCESS";
@@ -16,9 +19,11 @@ function ServerContainers({ server }: { server: ServerRecord }) {
   const canManage = user?.role === "ADMIN" || user?.role === "OPERATOR";
 
   const [containers, setContainers] = useState<ContainerInfo[] | null>(null);
+  const [stats, setStats] = useState<Record<string, ContainerStats>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [logsFor, setLogsFor] = useState<ContainerInfo | null>(null);
   const { confirm, modal } = useConfirm();
 
   function load() {
@@ -31,7 +36,21 @@ function ServerContainers({ server }: { server: ServerRecord }) {
       .finally(() => setLoading(false));
   }
 
+  function loadStats() {
+    api
+      .get<ContainerStats[]>(`/servers/${server.id}/containers/stats`)
+      .then((rows) => setStats(Object.fromEntries(rows.map((r) => [r.id, r]))))
+      .catch(() => undefined); // best-effort; the table still works without live stats
+  }
+
   useEffect(load, [server.id]);
+
+  useEffect(() => {
+    loadStats();
+    const interval = window.setInterval(loadStats, STATS_REFRESH_MS);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [server.id]);
 
   async function runAction(container: ContainerInfo, action: "start" | "stop" | "restart" | "recreate") {
     if (action === "stop") {
@@ -93,11 +112,17 @@ function ServerContainers({ server }: { server: ServerRecord }) {
               <th>State</th>
               <th>Status</th>
               <th>Ports</th>
+              <th>CPU</th>
+              <th>Memory</th>
+              <th>Net I/O</th>
+              <th></th>
               {canManage && <th></th>}
             </tr>
           </thead>
           <tbody>
-            {containers.map((c) => (
+            {containers.map((c) => {
+              const s = stats[c.id];
+              return (
               <tr key={c.id}>
                 <td>
                   {c.name}
@@ -109,6 +134,14 @@ function ServerContainers({ server }: { server: ServerRecord }) {
                 </td>
                 <td className="muted">{c.status}</td>
                 <td className="muted">{c.ports || "—"}</td>
+                <td className="muted">{s?.cpuPercent ?? "—"}</td>
+                <td className="muted">{s ? `${s.memUsage} (${s.memPercent})` : "—"}</td>
+                <td className="muted">{s?.netIO ?? "—"}</td>
+                <td>
+                  <button className="btn btn-sm" onClick={() => setLogsFor(c)}>
+                    Logs
+                  </button>
+                </td>
                 {canManage && (
                   <td>
                     <div className="row-actions">
@@ -140,9 +173,19 @@ function ServerContainers({ server }: { server: ServerRecord }) {
                   </td>
                 )}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
+      )}
+
+      {logsFor && (
+        <LogsModal
+          title={`Logs — ${logsFor.name}`}
+          serverId={server.id}
+          containerId={logsFor.id}
+          onClose={() => setLogsFor(null)}
+        />
       )}
     </div>
   );
