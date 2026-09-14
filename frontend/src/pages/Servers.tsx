@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 interface FormState {
   id: string | null;
   name: string;
+  environment: string;
   host: string;
   port: string;
   sshUser: string;
@@ -21,6 +22,7 @@ interface FormState {
 const EMPTY_FORM: FormState = {
   id: null,
   name: "",
+  environment: "Production",
   host: "",
   port: "22",
   sshUser: "root",
@@ -53,6 +55,8 @@ export function Servers() {
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load servers"));
   }
 
+  const environments = Array.from(new Set(servers.map((s) => s.environment))).sort();
+
   useEffect(load, []);
 
   function openCreate() {
@@ -64,6 +68,7 @@ export function Servers() {
     setForm({
       id: server.id,
       name: server.name,
+      environment: server.environment,
       host: server.host,
       port: String(server.port),
       sshUser: server.sshUser,
@@ -90,6 +95,7 @@ export function Servers() {
 
       const payload = {
         name: form.name,
+        environment: form.environment,
         host: form.host,
         port: Number(form.port),
         sshUser: form.sshUser,
@@ -169,6 +175,21 @@ export function Servers() {
               <div className="form-field">
                 <label>Name</label>
                 <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              </div>
+              <div className="form-field">
+                <label>Environment</label>
+                <input
+                  list="environment-suggestions"
+                  value={form.environment}
+                  onChange={(e) => setForm({ ...form, environment: e.target.value })}
+                  placeholder="Dev, Staging, Production…"
+                  required
+                />
+                <datalist id="environment-suggestions">
+                  {environments.map((env) => (
+                    <option key={env} value={env} />
+                  ))}
+                </datalist>
               </div>
               <div className="form-field">
                 <label>Host</label>
@@ -277,6 +298,7 @@ export function Servers() {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Environment</th>
                 <th>Host</th>
                 <th>SSH user</th>
                 <th>Base paths</th>
@@ -287,6 +309,9 @@ export function Servers() {
               {servers.map((s) => (
                 <tr key={s.id}>
                   <td>{s.name}</td>
+                  <td>
+                    <span className="badge badge-ADMIN">{s.environment}</span>
+                  </td>
                   <td>
                     {s.host}:{s.port}
                   </td>

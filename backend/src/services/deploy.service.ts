@@ -117,7 +117,7 @@ export async function browseDirectory(server: Server, dirPath: string): Promise<
     .map((name) => ({ name }));
 }
 
-async function execCommandOnServer(info: ServerConnectionInfo, command: string) {
+export async function execCommandOnServer(info: ServerConnectionInfo, command: string) {
   return withSSHConnection(info, (conn) => execCommand(conn, command));
 }
 

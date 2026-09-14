@@ -113,6 +113,22 @@ export function Deploy() {
     if (path) loadApps(path);
   }
 
+  function resetWizard() {
+    setStep(1);
+    setServerId("");
+    setRepositoryId("");
+    setBranches([]);
+    setBranch("");
+    setGitDir("");
+    setSourcePath("");
+    setBasePath("");
+    setApps([]);
+    setAppName("");
+    setBackupName("");
+    setDeploymentId(null);
+    setError(null);
+  }
+
   async function handleDeploy() {
     setError(null);
     setBusy(true);
@@ -320,7 +336,11 @@ export function Deploy() {
       )}
 
       {step === 6 && deploymentId && (
-        <DeployProgress deploymentId={deploymentId} onDone={() => navigate(`/history/${deploymentId}`)} />
+        <DeployProgress
+          deploymentId={deploymentId}
+          onDone={() => navigate(`/history/${deploymentId}`)}
+          onStartNew={resetWizard}
+        />
       )}
     </div>
   );
@@ -331,7 +351,15 @@ interface DeploymentPoll {
   log: string;
 }
 
-function DeployProgress({ deploymentId, onDone }: { deploymentId: string; onDone: () => void }) {
+function DeployProgress({
+  deploymentId,
+  onDone,
+  onStartNew,
+}: {
+  deploymentId: string;
+  onDone: () => void;
+  onStartNew: () => void;
+}) {
   const [poll, setPoll] = useState<DeploymentPoll | null>(null);
 
   useEffect(() => {
@@ -374,6 +402,9 @@ function DeployProgress({ deploymentId, onDone }: { deploymentId: string; onDone
       <div className="log-viewer">{poll?.log || "Waiting for output…"}</div>
       {finished && (
         <div className="row-actions" style={{ marginTop: 14 }}>
+          <button className="btn" onClick={onStartNew}>
+            Start a new deployment
+          </button>
           <button className="btn btn-primary" onClick={onDone}>
             View deployment details
           </button>

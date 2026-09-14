@@ -20,6 +20,7 @@ export interface UserRecord {
 export interface ServerRecord {
   id: string;
   name: string;
+  environment: string;
   host: string;
   port: number;
   sshUser: string;
@@ -29,6 +30,19 @@ export interface ServerRecord {
   basePaths: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export type ContainerState = "running" | "exited" | "paused" | "restarting" | "created" | "dead" | string;
+
+export interface ContainerInfo {
+  id: string;
+  name: string;
+  image: string;
+  status: string;
+  state: ContainerState;
+  ports: string;
+  composeProject?: string;
+  composeService?: string;
 }
 
 export interface RepositoryRecord {

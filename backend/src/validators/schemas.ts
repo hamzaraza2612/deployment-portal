@@ -29,6 +29,7 @@ export const serverSecretSchema = z.union([
 
 export const createServerSchema = z.object({
   name: z.string().min(1),
+  environment: z.string().min(1).default("Production"),
   host: z.string().min(1),
   port: z.number().int().min(1).max(65535).default(22),
   sshUser: z.string().min(1),
@@ -40,6 +41,7 @@ export const createServerSchema = z.object({
 
 export const updateServerSchema = z.object({
   name: z.string().min(1).optional(),
+  environment: z.string().min(1).optional(),
   host: z.string().min(1).optional(),
   port: z.number().int().min(1).max(65535).optional(),
   sshUser: z.string().min(1).optional(),

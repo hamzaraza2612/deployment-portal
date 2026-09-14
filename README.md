@@ -26,6 +26,19 @@ credentials, git base dir, base deployment paths, audit log path) and the
 portal SSHes into it for every step, so servers never need the script
 installed locally.
 
+## Environments
+
+Every server carries a free-text **environment** tag (Dev, Staging,
+Production, …), set when you add or edit it under **Servers**. The
+**Environments** page groups servers by that tag — click an environment to
+see every server in it, and for each one, the docker containers running
+there (`docker ps -a`, read live over the same SSH connection used for
+deploys), with Start / Stop / Restart / Recreate actions. Recreate reads
+the container's own `docker compose` labels and runs
+`docker compose up -d --force-recreate` for just that service in its
+project directory; containers not started via compose can be
+started/stopped/restarted but not recreated.
+
 ## Architecture
 
 - **backend/** — Node.js + Express + TypeScript, Prisma/PostgreSQL for
