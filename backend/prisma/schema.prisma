@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+enum AuthType {
+  PASSWORD
+  PRIVATE_KEY
+}
+
+enum DeploymentStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  name         String
+  role         Role         @default(VIEWER)
+  createdAt    DateTime     @default(now())
+  deployments  Deployment[]
+}
+
+model Server {
+  id            String       @id @default(cuid())
+  name          String
+  host          String
+  port          Int          @default(22)
+  sshUser       String
+  authType      AuthType     @default(PASSWORD)
+  // AES-256-GCM encrypted password, or encrypted private key (+ optional passphrase, stored as JSON)
+  secret        String
+  gitBaseDir    String       @default("/mnt/data/git-directory")
+  auditLogPath  String       @default("/mnt/data/deployment_audit.log")
+  // Deployment base paths available on this server, e.g. ["/mnt/data/techbey-apps", "/mnt/data/techbey-apps8"]
+  basePaths     String[]     @default([])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deployments   Deployment[]
+}
+
+model Repository {
+  id          String       @id @default(cuid())
+  name        String
+  url         String
+  username    String
+  // AES-256-GCM encrypted token/password
+  secret      String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deployments Deployment[]
+}
+
+model Deployment {
+  id             String           @id @default(cuid())
+  server         Server           @relation(fields: [serverId], references: [id])
+  serverId       String
+  repository     Repository       @relation(fields: [repositoryId], references: [id])
+  repositoryId   String
+  branch         String
+  sourcePath     String
+  basePath       String
+  appName        String
+  appPath        String
+  publishDir     String
+  backupName     String?
+  backupPath     String?
+  status         DeploymentStatus @default(PENDING)
+  log            String           @default("")
+  errorMessage   String?
+  triggeredBy    User             @relation(fields: [triggeredById], references: [id])
+  triggeredById  String
+  startedAt      DateTime         @default(now())
+  finishedAt     DateTime?
+
+  @@index([serverId])
+  @@index([status])
+}
