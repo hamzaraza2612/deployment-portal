@@ -1,0 +1,90 @@
+import { z } from "zod";
+
+export const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+export const createUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  name: z.string().min(1),
+  role: z.enum(["ADMIN", "OPERATOR", "VIEWER"]),
+});
+
+export const updateUserSchema = z.object({
+  name: z.string().min(1).optional(),
+  role: z.enum(["ADMIN", "OPERATOR", "VIEWER"]).optional(),
+  password: z.string().min(8).optional(),
+});
+
+export const serverSecretSchema = z.union([
+  z.object({ authType: z.literal("PASSWORD"), password: z.string().min(1) }),
+  z.object({
+    authType: z.literal("PRIVATE_KEY"),
+    privateKey: z.string().min(1),
+    passphrase: z.string().optional(),
+  }),
+]);
+
+export const createServerSchema = z.object({
+  name: z.string().min(1),
+  host: z.string().min(1),
+  port: z.number().int().min(1).max(65535).default(22),
+  sshUser: z.string().min(1),
+  gitBaseDir: z.string().min(1).default("/mnt/data/git-directory"),
+  auditLogPath: z.string().min(1).default("/mnt/data/deployment_audit.log"),
+  basePaths: z.array(z.string().min(1)).default([]),
+  auth: serverSecretSchema,
+});
+
+export const updateServerSchema = z.object({
+  name: z.string().min(1).optional(),
+  host: z.string().min(1).optional(),
+  port: z.number().int().min(1).max(65535).optional(),
+  sshUser: z.string().min(1).optional(),
+  gitBaseDir: z.string().min(1).optional(),
+  auditLogPath: z.string().min(1).optional(),
+  basePaths: z.array(z.string().min(1)).optional(),
+  auth: serverSecretSchema.optional(),
+});
+
+export const createRepositorySchema = z.object({
+  name: z.string().min(1),
+  url: z.string().min(1),
+  username: z.string().min(1),
+  secret: z.string().min(1),
+});
+
+export const updateRepositorySchema = z.object({
+  name: z.string().min(1).optional(),
+  url: z.string().min(1).optional(),
+  username: z.string().min(1).optional(),
+  secret: z.string().min(1).optional(),
+});
+
+export const fetchBranchesSchema = z.object({
+  serverId: z.string().min(1),
+  repositoryId: z.string().min(1),
+});
+
+export const checkoutBranchSchema = z.object({
+  serverId: z.string().min(1),
+  repositoryId: z.string().min(1),
+  branch: z.string().min(1),
+});
+
+export const browseSchema = z.object({
+  serverId: z.string().min(1),
+  path: z.string().min(1),
+});
+
+export const createDeploymentSchema = z.object({
+  serverId: z.string().min(1),
+  repositoryId: z.string().min(1),
+  branch: z.string().min(1),
+  sourcePath: z.string().min(1),
+  basePath: z.string().min(1),
+  appName: z.string().min(1),
+  backupName: z.string().optional(),
+});
