@@ -12,6 +12,8 @@ import { History } from "./pages/History";
 import { DeploymentDetail } from "./pages/DeploymentDetail";
 import { ContainerLogs } from "./pages/ContainerLogs";
 import { Links } from "./pages/Links";
+import { DockerStats } from "./pages/DockerStats";
+import { ServerMonitoring } from "./pages/ServerMonitoring";
 import type { Role } from "./lib/types";
 
 function FullScreenLoader() {
@@ -65,6 +67,15 @@ export default function App() {
         <Route path="/history" element={<History />} />
         <Route path="/history/:id" element={<DeploymentDetail />} />
         <Route path="/environments" element={<Environments />} />
+        <Route path="/docker-stats" element={<DockerStats />} />
+        <Route
+          path="/server-monitoring"
+          element={
+            <RequireAuth roles={["ADMIN"]}>
+              <ServerMonitoring />
+            </RequireAuth>
+          }
+        />
         <Route path="/links" element={<Links />} />
         <Route path="/servers" element={<Servers />} />
         <Route path="/repositories" element={<Repositories />} />

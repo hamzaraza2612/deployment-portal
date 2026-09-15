@@ -47,6 +47,16 @@ export interface ContainerInfo {
   composeService?: string;
 }
 
+export interface ContainerStats {
+  id: string;
+  name: string;
+  cpuPercent: string;
+  memUsage: string;
+  memPercent: string;
+  netIO: string;
+  blockIO: string;
+}
+
 export interface SystemStats {
   cpuPercent: number | null;
   memTotalMb: number | null;

@@ -44,13 +44,10 @@ whole project, not just the clicked container. The confirm dialog spells
 this out before anything runs. Containers not started via compose can be
 started/stopped/restarted but not recreated.
 
-Each server's card also shows **host-level CPU/RAM/disk usage** (via
-`vmstat`/`free`/`df` over SSH, refreshed every 10 seconds) alongside a
-running vs. stopped container count in the same stat row — a lightweight
-current-state view, not historical graphs. A search box filters that
-server's containers by name. All of this reads over the same on-demand
-SSH connection used everywhere else in the portal — no separate
-metrics/logging stack (Prometheus, Grafana, etc.) is required.
+Each server's card also shows a running vs. stopped container count next
+to its name, and a search box filters that server's containers. Live
+resource usage lives on two separate pages instead of cluttering this
+one — see **Docker Stats** and **Server Monitoring** below.
 
 A **Logs** button per container opens `docker logs --tail N --timestamps`
 in its own full-page tab (`/environments/:serverId/containers/:id/logs`),
@@ -66,6 +63,28 @@ what's new since you started watching.
 The **Deploy** wizard's branch and application pickers are searchable
 (type to filter, matched against the full list fetched from the server)
 rather than long plain dropdowns.
+
+## Docker Stats
+
+A dedicated, environment-grouped page showing **every container's live
+CPU%, memory usage/limit, and network/block I/O** (`docker stats
+--no-stream`, refreshed every 3 seconds) — databases (Redis, Postgres,
+MSSQL, Mongo, …), caches, and application containers alike, whatever is
+running under Docker on that server. Open to every role with access to
+that environment; this page is read-only (no start/stop/recreate — those
+stay on **Environments**). Alerting on these values (thresholds, notify
+on a container going down) is planned but not built yet.
+
+## Server Monitoring
+
+Host-level **CPU, RAM, and disk usage** per server (`vmstat`/`free`/`df`
+over SSH, refreshed every 10 seconds), grouped by environment — **Admin
+only**, enforced both by hiding the nav item and by the API route itself
+requiring the Admin role, not just a hidden button. This used to live
+inline on the Environments page; it's now separate so non-admin users
+(devs, QA) don't see host resource details they don't need, while still
+seeing container state on Environments and container-level metrics on
+Docker Stats. Alerting here is planned for later too.
 
 ## Links
 

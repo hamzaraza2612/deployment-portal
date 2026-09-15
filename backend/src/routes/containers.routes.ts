@@ -6,6 +6,7 @@ import type { AuthTokenPayload } from "../middleware/auth";
 import { canAccessEnvironment } from "../lib/access";
 import {
   getContainerLogs,
+  getContainerStats,
   listContainers,
   recreateContainer,
   runContainerAction,
@@ -29,6 +30,15 @@ containersRouter.get(
     const server = await loadAccessibleServer(req.user!, req.params.serverId);
     const containers = await listContainers(server);
     res.json(containers);
+  })
+);
+
+containersRouter.get(
+  "/:serverId/containers/stats",
+  asyncHandler(async (req, res) => {
+    const server = await loadAccessibleServer(req.user!, req.params.serverId);
+    const stats = await getContainerStats(server);
+    res.json(stats);
   })
 );
 
