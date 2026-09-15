@@ -67,6 +67,14 @@ export interface SystemStats {
   diskAvailKb: number | null;
 }
 
+export interface VmServiceStatus {
+  name: string;
+  running: boolean;
+  method: "systemd" | "port" | "process" | "none";
+  cpuPercent: number | null;
+  memKb: number | null;
+}
+
 export interface AppLinkRecord {
   id: string;
   environment: string;

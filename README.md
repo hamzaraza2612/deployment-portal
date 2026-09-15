@@ -84,7 +84,19 @@ requiring the Admin role, not just a hidden button. This used to live
 inline on the Environments page; it's now separate so non-admin users
 (devs, QA) don't see host resource details they don't need, while still
 seeing container state on Environments and container-level metrics on
-Docker Stats. Alerting here is planned for later too.
+Docker Stats.
+
+The same page also auto-detects **common services that often run
+directly on the VM rather than in Docker** — Redis, PostgreSQL, MSSQL,
+MongoDB, and Docker itself — with no per-server configuration needed.
+Each is checked in order (a likely systemd unit name, then its well-known
+port, then a process-name pattern), so it's found whether or not it's
+managed by systemd or named unusually. Detected services show CPU% and
+memory (`ps` on the resolved PID) when a PID is available; undetected
+ones just show "Not found" rather than blocking anything. This is
+deliberately a lightweight up/down + resource check — no credentials are
+stored and no actual connection/ping is made to the service. Alerting on
+any of this (host stats or service state) is planned for later.
 
 ## Links
 
