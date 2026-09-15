@@ -13,7 +13,21 @@ export function toConnectionInfo(server: Server): ServerConnectionInfo {
     sshUser: server.sshUser,
     authType: server.authType,
     secret: server.secret,
+    label: server.name,
   };
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** e.g. "14-Sep-2026_14-30-05" — human-readable, still unique to the second for same-day repeat deploys. */
+export function formatBackupTimestamp(date: Date): string {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = MONTHS[date.getMonth()];
+  const year = date.getFullYear();
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${day}-${month}-${year}_${hh}-${mm}-${ss}`;
 }
 
 export function repoNameFromUrl(url: string): string {
@@ -157,7 +171,7 @@ export async function runDeployment({ deploymentId }: RunDeploymentArgs): Promis
   const backupName =
     deployment.backupName && deployment.backupName.trim().length > 0
       ? deployment.backupName.trim().replace(/\s+/g, "_")
-      : `Backup_${new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15)}`;
+      : `Backup_${formatBackupTimestamp(new Date())}`;
 
   const backupDir = path.posix.join(deployment.appPath, "Backups", backupName);
 
@@ -284,7 +298,7 @@ export async function runRevert({ deploymentId }: RunRevertArgs): Promise<void> 
   const backupName =
     deployment.backupName && deployment.backupName.trim().length > 0
       ? deployment.backupName.trim().replace(/\s+/g, "_")
-      : `PreRevert_${new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15)}`;
+      : `PreRevert_${formatBackupTimestamp(new Date())}`;
 
   const backupDir = path.posix.join(deployment.appPath, "Backups", backupName);
 

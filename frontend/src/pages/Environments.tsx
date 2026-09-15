@@ -11,6 +11,13 @@ function containerStateClass(state: string): string {
   return "badge-FAILED"; // exited, dead, etc.
 }
 
+/** Docker's Ports string is verbose (host+container port, protocol, dual-stack) — show just the external port(s). */
+function externalPorts(portsStr: string): string {
+  const matches = Array.from(portsStr.matchAll(/:(\d+)->/g)).map((m) => m[1]);
+  const unique = Array.from(new Set(matches));
+  return unique.length > 0 ? unique.join(", ") : "—";
+}
+
 function ServerContainers({ server }: { server: ServerRecord }) {
   const { user } = useAuth();
   const canManage = user?.role === "ADMIN" || user?.role === "OPERATOR";
@@ -53,6 +60,14 @@ function ServerContainers({ server }: { server: ServerRecord }) {
         `Stop ${container.name}? The app will become unavailable until it's started again.`,
         { title: "Stop container", confirmLabel: "Stop", danger: true }
       );
+      if (!ok) return;
+    }
+    if (action === "restart") {
+      const ok = await confirm(`Restart ${container.name}? The app will briefly become unavailable.`, {
+        title: "Restart container",
+        confirmLabel: "Restart",
+        danger: true,
+      });
       if (!ok) return;
     }
     if (action === "recreate") {
@@ -144,7 +159,7 @@ function ServerContainers({ server }: { server: ServerRecord }) {
                       <span className={`badge ${containerStateClass(c.state)}`}>{c.state}</span>
                     </td>
                     <td className="muted">{c.status}</td>
-                    <td className="muted">{c.ports || "—"}</td>
+                    <td className="muted">{c.ports ? externalPorts(c.ports) : "—"}</td>
                     <td>
                       <button className="btn btn-sm" onClick={() => openLogs(c)}>
                         Logs

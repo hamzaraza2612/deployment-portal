@@ -37,9 +37,10 @@ export function History() {
   useEffect(load, [status, serverId]);
 
   async function handleRevert(d: DeploymentListItem) {
+    const backupLabel = d.backupName ?? "this deployment's backup";
     const ok = await confirm(
-      `Revert ${d.appName} on ${d.server.name} to this deployment (${d.branch})? The publish folder will be ` +
-        `emptied and replaced entirely with this deployment's backup, and the container will restart.`,
+      `Revert ${d.appName} on ${d.server.name} to backup "${backupLabel}"? Publish folder will be replaced ` +
+        `entirely and the container restarted.`,
       { title: "Revert deployment", confirmLabel: "Revert", danger: true }
     );
     if (!ok) return;

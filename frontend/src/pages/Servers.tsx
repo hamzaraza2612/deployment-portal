@@ -308,7 +308,6 @@ export function Servers() {
                 <th>Name</th>
                 <th>Environment</th>
                 <th>Host</th>
-                <th>SSH user</th>
                 <th>Base paths</th>
                 <th></th>
               </tr>
@@ -320,10 +319,7 @@ export function Servers() {
                   <td>
                     <span className="badge badge-ADMIN">{s.environment}</span>
                   </td>
-                  <td>
-                    {s.host}:{s.port}
-                  </td>
-                  <td>{s.sshUser}</td>
+                  <td>{s.host}</td>
                   <td className="muted">{s.basePaths.join(", ") || "—"}</td>
                   <td>
                     <div className="row-actions">
