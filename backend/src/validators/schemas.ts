@@ -92,3 +92,21 @@ export const createDeploymentSchema = z.object({
   appName: z.string().min(1),
   backupName: z.string().optional(),
 });
+
+export const createAppLinkSchema = z.object({
+  environment: z.string().min(1),
+  name: z.string().min(1),
+  url: z.string().min(1),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const updateAppLinkSchema = z.object({
+  environment: z.string().min(1).optional(),
+  name: z.string().min(1).optional(),
+  url: z.string().min(1).optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  notes: z.string().optional(),
+});

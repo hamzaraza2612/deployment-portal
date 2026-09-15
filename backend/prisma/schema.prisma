@@ -99,3 +99,24 @@ model Deployment {
   @@index([serverId])
   @@index([status])
 }
+
+// A self-service URL/credential entry for an environment, e.g. "QA login for
+// the Customer Portal" — so devs/QA don't have to remember every app's URL
+// or ping someone for its password. Scoped by the same environment tag used
+// on Server, and visible to any user with access to that environment.
+model AppLink {
+  id          String   @id @default(cuid())
+  environment String
+  name        String
+  url         String
+  username    String?
+  // AES-256-GCM encrypted; unlike Server/Repository secrets this one IS
+  // returned decrypted to any user with access to the environment, since the
+  // whole point is self-service lookup.
+  password    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([environment])
+}
