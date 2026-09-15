@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import type { DeploymentDetail as DeploymentDetailType } from "../lib/types";
 import { Badge, formatDateTime, formatDuration } from "../components/Badge";
+import { useAuth } from "../context/AuthContext";
+import { useConfirm } from "../hooks/useConfirm";
 
 export function DeploymentDetail() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const canDeploy = user?.role === "ADMIN" || user?.role === "OPERATOR";
+  const navigate = useNavigate();
+  const { confirm, modal } = useConfirm();
+
   const [deployment, setDeployment] = useState<DeploymentDetailType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reverting, setReverting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -34,11 +42,31 @@ export function DeploymentDetail() {
     };
   }, [id]);
 
+  async function handleRevert() {
+    if (!deployment) return;
+    const ok = await confirm(
+      `Revert ${deployment.appName} to this deployment (${deployment.branch})? The publish folder will be ` +
+        `emptied and replaced entirely with this deployment's backup, and the container will restart.`,
+      { title: "Revert deployment", confirmLabel: "Revert", danger: true }
+    );
+    if (!ok) return;
+    setReverting(true);
+    setError(null);
+    try {
+      const revert = await api.post<{ id: string }>(`/deployments/${deployment.id}/revert`);
+      navigate(`/history/${revert.id}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to start revert");
+      setReverting(false);
+    }
+  }
+
   if (error) return <div className="alert alert-error">{error}</div>;
   if (!deployment) return <div className="empty-state">Loading…</div>;
 
   return (
     <div>
+      {modal}
       <div className="page-header">
         <div>
           <h1>
@@ -47,7 +75,21 @@ export function DeploymentDetail() {
           <div className="page-subtitle">
             <Link to="/history">← Back to history</Link>
           </div>
+          {deployment.isRevert && deployment.revertedFrom && (
+            <div className="alert alert-info" style={{ marginTop: 10 }}>
+              ↩ This is a revert of{" "}
+              <Link to={`/history/${deployment.revertedFrom.id}`}>
+                {deployment.revertedFrom.appName} ({deployment.revertedFrom.branch}) started{" "}
+                {formatDateTime(deployment.revertedFrom.startedAt)}
+              </Link>
+            </div>
+          )}
         </div>
+        {canDeploy && deployment.status === "SUCCESS" && (
+          <button className="btn" disabled={reverting} onClick={handleRevert}>
+            {reverting ? "Starting…" : "Revert to this"}
+          </button>
+        )}
       </div>
 
       <div className="card">

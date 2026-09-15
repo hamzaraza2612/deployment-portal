@@ -232,3 +232,122 @@ echo "===> Deployment completed successfully"
     });
   }
 }
+
+interface RunRevertArgs {
+  deploymentId: string;
+}
+
+/**
+ * Runs a revert: backs up whatever is currently published (so the revert itself
+ * can be undone), then restores the publish folder to exactly match the target
+ * deployment's backup — `rsync --delete` makes publish/ a clean mirror of the
+ * backup instead of merging the two, per how this was asked to behave — and
+ * restarts the container the same way a normal deploy does.
+ */
+export async function runRevert({ deploymentId }: RunRevertArgs): Promise<void> {
+  const deployment = await prisma.deployment.findUniqueOrThrow({
+    where: { id: deploymentId },
+    include: { server: true, repository: true, revertedFrom: true },
+  });
+
+  const { server, repository, revertedFrom: target } = deployment;
+  const info = toConnectionInfo(server);
+
+  await prisma.deployment.update({
+    where: { id: deploymentId },
+    data: { status: "RUNNING" },
+  });
+
+  let fullLog = "";
+  let lastFlush = Date.now();
+
+  const appendLog = async (text: string) => {
+    fullLog += text;
+    if (Date.now() - lastFlush > 400) {
+      lastFlush = Date.now();
+      const toWrite = fullLog;
+      await prisma.deployment
+        .update({ where: { id: deploymentId }, data: { log: toWrite } })
+        .catch(() => undefined);
+    }
+  };
+
+  if (!target || !target.backupPath) {
+    const message = "The deployment being reverted to has no backup to restore from.";
+    await prisma.deployment.update({
+      where: { id: deploymentId },
+      data: { status: "FAILED", errorMessage: message, log: message, finishedAt: new Date() },
+    });
+    return;
+  }
+
+  const backupName =
+    deployment.backupName && deployment.backupName.trim().length > 0
+      ? deployment.backupName.trim().replace(/\s+/g, "_")
+      : `PreRevert_${new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15)}`;
+
+  const backupDir = path.posix.join(deployment.appPath, "Backups", backupName);
+
+  const script = `
+set -e
+echo "===> Backing up current build (before revert) to ${backupDir}"
+mkdir -p ${shQuote(backupDir)}
+if [ -d ${shQuote(deployment.publishDir)} ]; then
+  cp -r ${shQuote(deployment.publishDir)}/* ${shQuote(backupDir)}/ 2>/dev/null || echo "(nothing to back up yet)"
+fi
+
+echo "===> Restoring publish folder from backup: ${target.backupPath}"
+mkdir -p ${shQuote(deployment.publishDir)}
+rsync -av --delete ${shQuote(target.backupPath)}/ ${shQuote(deployment.publishDir)}/
+
+echo "===> Restarting container in ${deployment.appPath}"
+cd ${shQuote(deployment.appPath)}
+docker compose down
+docker compose up -d
+
+echo "===> Writing audit log entry"
+{
+  echo "===== $(date '+%Y-%m-%d %H:%M:%S') ====="
+  echo "Action            : REVERT"
+  echo "Reverted to       : deployment ${target.id} (backup: ${target.backupPath})"
+  echo "Git URL           : ${repository.url}"
+  echo "Branch            : ${deployment.branch}"
+  echo "Deployment Base   : ${deployment.basePath}"
+  echo "App               : ${deployment.appName}"
+  echo "App Path          : ${deployment.appPath}"
+  echo "Pre-revert backup : ${backupDir}"
+  echo "======================================="
+} >> ${shQuote(server.auditLogPath)} 2>/dev/null || true
+
+echo "===> Revert completed successfully"
+`.trim();
+
+  try {
+    const result = await execScript(info, script, (chunk) => {
+      void appendLog(chunk);
+    });
+
+    await prisma.deployment.update({
+      where: { id: deploymentId },
+      data: {
+        log: fullLog,
+        backupName,
+        backupPath: backupDir,
+        status: result.code === 0 ? "SUCCESS" : "FAILED",
+        errorMessage: result.code === 0 ? null : `Remote script exited with code ${result.code}`,
+        finishedAt: new Date(),
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    await prisma.deployment.update({
+      where: { id: deploymentId },
+      data: {
+        log: fullLog + `\n[ERROR] ${message}\n`,
+        status: "FAILED",
+        errorMessage: message,
+        finishedAt: new Date(),
+      },
+    });
+  }
+}

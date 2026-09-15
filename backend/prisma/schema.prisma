@@ -96,6 +96,13 @@ model Deployment {
   startedAt      DateTime         @default(now())
   finishedAt     DateTime?
 
+  // True when this row is a revert-to-backup run rather than a normal deploy.
+  isRevert       Boolean          @default(false)
+  // The deployment whose backup this row restored, when isRevert is true.
+  revertedFrom   Deployment?      @relation("DeploymentRevert", fields: [revertedFromId], references: [id])
+  revertedFromId String?
+  revertedBy     Deployment[]     @relation("DeploymentRevert")
+
   @@index([serverId])
   @@index([status])
 }
