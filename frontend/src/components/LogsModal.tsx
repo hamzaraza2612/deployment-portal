@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "../lib/api";
 
 interface LogsModalProps {
@@ -14,20 +14,21 @@ const REFRESH_MS = 3000;
 export function LogsModal({ title, serverId, containerId, onClose }: LogsModalProps) {
   const [tail, setTail] = useState(200);
   const [log, setLog] = useState("");
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const logViewerRef = useRef<HTMLDivElement>(null);
 
   function load() {
     setLoading(true);
     api
-      .get<{ log: string }>(
-        `/servers/${serverId}/containers/${containerId}/logs?tail=${tail}`
-      )
+      .get<{ log: string }>(`/servers/${serverId}/containers/${containerId}/logs?tail=${tail}`)
       .then((res) => {
         setLog(res.log);
         setError(null);
+        setLastRefreshed(new Date());
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load logs"))
       .finally(() => setLoading(false));
@@ -42,41 +43,69 @@ export function LogsModal({ title, serverId, containerId, onClose }: LogsModalPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, serverId, containerId, tail]);
 
+  const displayedLog = useMemo(() => {
+    if (!search.trim()) return log;
+    const needle = search.trim().toLowerCase();
+    return log
+      .split("\n")
+      .filter((line) => line.toLowerCase().includes(needle))
+      .join("\n");
+  }, [log, search]);
+
   useEffect(() => {
     const el = logViewerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [log]);
+  }, [displayedLog]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card modal-card-wide" onClick={(e) => e.stopPropagation()}>
-        <h3>{title}</h3>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
-          <div className="form-field" style={{ margin: 0 }}>
-            <select value={tail} onChange={(e) => setTail(Number(e.target.value))} style={{ padding: "6px 10px" }}>
-              {TAIL_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  Last {n} lines
-                </option>
-              ))}
-            </select>
-          </div>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+        <h3 style={{ flexShrink: 0 }}>{title}</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10, flexWrap: "wrap", flexShrink: 0 }}>
+          <select value={tail} onChange={(e) => setTail(Number(e.target.value))} style={{ padding: "6px 10px" }}>
+            {TAIL_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                Last {n} lines
+              </option>
+            ))}
+          </select>
+          <input
+            placeholder="Search log text…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ flex: 1, minWidth: 160 }}
+          />
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, whiteSpace: "nowrap" }}>
             <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
-            Auto-refresh every 3s
+            Auto-refresh
           </label>
           <button className="btn btn-sm" onClick={load} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh now"}
           </button>
         </div>
 
-        {error && <div className="alert alert-error">{error}</div>}
+        {lastRefreshed && (
+          <div className="muted" style={{ fontSize: 12, marginBottom: 8, flexShrink: 0 }}>
+            Last updated {lastRefreshed.toLocaleTimeString()}
+            {search && ` · showing lines matching "${search}"`}
+          </div>
+        )}
 
-        <div className="log-viewer" ref={logViewerRef} style={{ maxHeight: 420 }}>
-          {log || "No log output."}
+        {error && (
+          <div className="alert alert-error" style={{ flexShrink: 0 }}>
+            {error}
+          </div>
+        )}
+
+        <div
+          className="log-viewer"
+          ref={logViewerRef}
+          style={{ flex: 1, minHeight: 200, maxHeight: "none" }}
+        >
+          {displayedLog || (search ? `No lines match "${search}".` : "No log output.")}
         </div>
 
-        <div className="row-actions" style={{ marginTop: 14 }}>
+        <div className="row-actions" style={{ marginTop: 14, flexShrink: 0 }}>
           <button className="btn" onClick={onClose}>
             Close
           </button>

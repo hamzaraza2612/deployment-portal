@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../lib/api";
-import type { ContainerInfo, ContainerStats, ServerRecord } from "../lib/types";
+import type { ContainerInfo, ServerRecord, SystemStats } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../hooks/useConfirm";
 import { LogsModal } from "../components/LogsModal";
 
-const STATS_REFRESH_MS = 3000;
+const SYSTEM_STATS_REFRESH_MS = 10000;
 
 function containerStateClass(state: string): string {
   if (state === "running") return "badge-SUCCESS";
@@ -14,12 +14,68 @@ function containerStateClass(state: string): string {
   return "badge-FAILED"; // exited, dead, etc.
 }
 
+function formatMb(mb: number | null): string {
+  if (mb == null) return "—";
+  return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
+}
+
+function formatKb(kb: number | null): string {
+  if (kb == null) return "—";
+  return `${(kb / 1024 / 1024).toFixed(1)} GB`;
+}
+
+function SystemStatBar({ serverId }: { serverId: string }) {
+  const [stats, setStats] = useState<SystemStats | null>(null);
+  const [error, setError] = useState(false);
+
+  function load() {
+    api
+      .get<SystemStats>(`/servers/${serverId}/system-stats`)
+      .then((s) => {
+        setStats(s);
+        setError(false);
+      })
+      .catch(() => setError(true));
+  }
+
+  useEffect(() => {
+    load();
+    const interval = window.setInterval(load, SYSTEM_STATS_REFRESH_MS);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverId]);
+
+  if (error) {
+    return <div className="muted" style={{ fontSize: 13 }}>Host stats unavailable.</div>;
+  }
+  if (!stats) {
+    return <div className="muted" style={{ fontSize: 13 }}>Loading host stats…</div>;
+  }
+
+  return (
+    <div className="stat-grid" style={{ marginBottom: 14 }}>
+      <div className="stat-card">
+        <div className="stat-value">{stats.cpuPercent == null ? "—" : `${stats.cpuPercent}%`}</div>
+        <div className="stat-label">CPU</div>
+      </div>
+      <div className="stat-card">
+        <div className="stat-value">{formatMb(stats.memUsedMb)}</div>
+        <div className="stat-label">RAM used of {formatMb(stats.memTotalMb)}</div>
+      </div>
+      <div className="stat-card">
+        <div className="stat-value">{formatKb(stats.diskUsedKb)}</div>
+        <div className="stat-label">Disk used of {formatKb(stats.diskTotalKb)}</div>
+      </div>
+    </div>
+  );
+}
+
 function ServerContainers({ server }: { server: ServerRecord }) {
   const { user } = useAuth();
   const canManage = user?.role === "ADMIN" || user?.role === "OPERATOR";
 
   const [containers, setContainers] = useState<ContainerInfo[] | null>(null);
-  const [stats, setStats] = useState<Record<string, ContainerStats>>({});
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -36,21 +92,13 @@ function ServerContainers({ server }: { server: ServerRecord }) {
       .finally(() => setLoading(false));
   }
 
-  function loadStats() {
-    api
-      .get<ContainerStats[]>(`/servers/${server.id}/containers/stats`)
-      .then((rows) => setStats(Object.fromEntries(rows.map((r) => [r.id, r]))))
-      .catch(() => undefined); // best-effort; the table still works without live stats
-  }
-
   useEffect(load, [server.id]);
 
-  useEffect(() => {
-    loadStats();
-    const interval = window.setInterval(loadStats, STATS_REFRESH_MS);
-    return () => window.clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [server.id]);
+  const filtered = (containers ?? []).filter((c) =>
+    c.name.toLowerCase().includes(search.trim().toLowerCase())
+  );
+  const runningCount = (containers ?? []).filter((c) => c.state === "running").length;
+  const stoppedCount = (containers ?? []).length - runningCount;
 
   async function runAction(container: ContainerInfo, action: "start" | "stop" | "restart" | "recreate") {
     if (action === "stop") {
@@ -91,6 +139,12 @@ function ServerContainers({ server }: { server: ServerRecord }) {
           <strong>{server.name}</strong>
           <div className="muted" style={{ fontSize: 13 }}>
             {server.host}:{server.port}
+            {containers && (
+              <>
+                {" · "}
+                {runningCount} running, {stoppedCount} stopped
+              </>
+            )}
           </div>
         </div>
         <button className="btn btn-sm" onClick={load} disabled={loading}>
@@ -98,85 +152,99 @@ function ServerContainers({ server }: { server: ServerRecord }) {
         </button>
       </div>
 
+      <SystemStatBar serverId={server.id} />
+
       {error && <div className="alert alert-error">{error}</div>}
 
       {!error && containers === null && loading && <div className="empty-state">Connecting over SSH…</div>}
       {containers && containers.length === 0 && <div className="empty-state">No containers found on this server.</div>}
 
       {containers && containers.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Image</th>
-              <th>State</th>
-              <th>Status</th>
-              <th>Ports</th>
-              <th>CPU</th>
-              <th>Memory</th>
-              <th>Net I/O</th>
-              <th></th>
-              {canManage && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {containers.map((c) => {
-              const s = stats[c.id];
-              return (
-              <tr key={c.id}>
-                <td>
-                  {c.name}
-                  {c.composeService && <div className="muted" style={{ fontSize: 12 }}>{c.composeService}</div>}
-                </td>
-                <td className="muted">{c.image}</td>
-                <td>
-                  <span className={`badge ${containerStateClass(c.state)}`}>{c.state}</span>
-                </td>
-                <td className="muted">{c.status}</td>
-                <td className="muted">{c.ports || "—"}</td>
-                <td className="muted">{s?.cpuPercent ?? "—"}</td>
-                <td className="muted">{s ? `${s.memUsage} (${s.memPercent})` : "—"}</td>
-                <td className="muted">{s?.netIO ?? "—"}</td>
-                <td>
-                  <button className="btn btn-sm" onClick={() => setLogsFor(c)}>
-                    Logs
-                  </button>
-                </td>
-                {canManage && (
-                  <td>
-                    <div className="row-actions">
-                      <button
-                        className="btn btn-sm"
-                        disabled={busyId === c.id || c.state === "running"}
-                        onClick={() => runAction(c, "start")}
-                      >
-                        Start
+        <>
+          <div className="form-field" style={{ maxWidth: 280 }}>
+            <input
+              placeholder="Search containers by name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          {filtered.length === 0 ? (
+            <div className="empty-state">No containers match "{search}".</div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Image</th>
+                  <th>State</th>
+                  <th>Status</th>
+                  <th>Ports</th>
+                  <th></th>
+                  {canManage && <th></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      {c.name}
+                      {c.composeService && (
+                        <div className="muted" style={{ fontSize: 12 }}>
+                          {c.composeService}
+                        </div>
+                      )}
+                    </td>
+                    <td className="muted">{c.image}</td>
+                    <td>
+                      <span className={`badge ${containerStateClass(c.state)}`}>{c.state}</span>
+                    </td>
+                    <td className="muted">{c.status}</td>
+                    <td className="muted">{c.ports || "—"}</td>
+                    <td>
+                      <button className="btn btn-sm" onClick={() => setLogsFor(c)}>
+                        Logs
                       </button>
-                      <button
-                        className="btn btn-sm"
-                        disabled={busyId === c.id || c.state !== "running"}
-                        onClick={() => runAction(c, "stop")}
-                      >
-                        Stop
-                      </button>
-                      <button className="btn btn-sm" disabled={busyId === c.id} onClick={() => runAction(c, "restart")}>
-                        Restart
-                      </button>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        disabled={busyId === c.id}
-                        onClick={() => runAction(c, "recreate")}
-                      >
-                        Recreate
-                      </button>
-                    </div>
-                  </td>
-                )}
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                    {canManage && (
+                      <td>
+                        <div className="row-actions">
+                          <button
+                            className="btn btn-sm"
+                            disabled={busyId === c.id || c.state === "running"}
+                            onClick={() => runAction(c, "start")}
+                          >
+                            Start
+                          </button>
+                          <button
+                            className="btn btn-sm"
+                            disabled={busyId === c.id || c.state !== "running"}
+                            onClick={() => runAction(c, "stop")}
+                          >
+                            Stop
+                          </button>
+                          <button
+                            className="btn btn-sm"
+                            disabled={busyId === c.id}
+                            onClick={() => runAction(c, "restart")}
+                          >
+                            Restart
+                          </button>
+                          <button
+                            className="btn btn-sm btn-danger"
+                            disabled={busyId === c.id}
+                            onClick={() => runAction(c, "recreate")}
+                          >
+                            Recreate
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
       )}
 
       {logsFor && (

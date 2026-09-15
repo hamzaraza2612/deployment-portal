@@ -30,17 +30,21 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="sidebar-footer">
-          <div>{user?.name}</div>
-          <div className="muted">{user?.role}</div>
-          <button className="btn btn-sm" style={{ marginTop: 10, width: "100%" }} onClick={() => logout()}>
+      </aside>
+      <div className="content-area">
+        <header className="topbar">
+          <div className="topbar-user">
+            <span>{user?.name}</span>
+            <span className={`badge badge-${user?.role}`}>{user?.role}</span>
+          </div>
+          <button className="btn btn-sm" onClick={() => logout()}>
             Log out
           </button>
-        </div>
-      </aside>
-      <main className="main">
-        <Outlet />
-      </main>
+        </header>
+        <main className="main">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

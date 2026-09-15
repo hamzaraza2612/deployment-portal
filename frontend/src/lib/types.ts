@@ -47,13 +47,14 @@ export interface ContainerInfo {
   composeService?: string;
 }
 
-export interface ContainerStats {
-  id: string;
-  cpuPercent: string;
-  memUsage: string;
-  memPercent: string;
-  netIO: string;
-  blockIO: string;
+export interface SystemStats {
+  cpuPercent: number | null;
+  memTotalMb: number | null;
+  memUsedMb: number | null;
+  memAvailableMb: number | null;
+  diskTotalKb: number | null;
+  diskUsedKb: number | null;
+  diskAvailKb: number | null;
 }
 
 export interface RepositoryRecord {

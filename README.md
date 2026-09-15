@@ -44,15 +44,20 @@ whole project, not just the clicked container. The confirm dialog spells
 this out before anything runs. Containers not started via compose can be
 started/stopped/restarted but not recreated.
 
-**Live metrics and logs** are built into the same table: CPU%, memory
-usage/limit, and network I/O per container (`docker stats --no-stream`,
-refreshed every 3 seconds while the page is open — a lightweight
-current-state view, not historical graphs), and a **Logs** button per
-container opens its `docker logs --tail N --timestamps` output in a modal
-that also auto-refreshes every 3 seconds, with a selectable tail length.
-All of this reads over the same on-demand SSH connection used everywhere
-else in the portal — no separate metrics/logging stack (Prometheus,
-Grafana, etc.) is required.
+Each server's card also shows **host-level CPU/RAM/disk usage** (via
+`vmstat`/`free`/`df` over SSH, refreshed every 10 seconds) and a running
+vs. stopped container count — a lightweight current-state view, not
+historical graphs. A search box filters that server's containers by name.
+A **Logs** button per container opens its `docker logs --tail N
+--timestamps` output in a modal that auto-refreshes every 3 seconds, with
+a selectable tail length and a text filter over the displayed lines. All
+of this reads over the same on-demand SSH connection used everywhere else
+in the portal — no separate metrics/logging stack (Prometheus, Grafana,
+etc.) is required.
+
+The **Deploy** wizard's branch and application pickers are searchable
+(type to filter, matched against the full list fetched from the server)
+rather than long plain dropdowns.
 
 ## Architecture
 
