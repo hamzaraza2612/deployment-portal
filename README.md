@@ -83,6 +83,27 @@ lookup. Only Admins can add/edit/delete entries; everyone with access to
 an environment can view its entries, reveal/hide each password, and copy
 it.
 
+## Reverting a deployment
+
+Every **successful** deployment in **History** (or its detail page) gets a
+**"Revert to this"** button — for rolling an app back to how it looked at
+that point, without going through the full wizard. Reverting:
+
+1. Backs up whatever is *currently* published (so the revert itself isn't a
+   dead end — you can revert a revert).
+2. Empties the publish folder and restores it to exactly match the target
+   deployment's own backup (`rsync -av --delete`, a clean mirror rather than
+   a merge/overwrite — files that existed in a later deploy but not in the
+   backup are removed, not left behind).
+3. Restarts the container the same way a normal deploy does.
+
+A revert shows up in **History** as its own entry (tagged "↩ revert", linking
+back to the deployment it restored) rather than mutating the original row, so
+the audit trail stays intact. Only successful deployments can be reverted to
+— a failed one may not have completed its backup step — and only Admins/
+Operators can trigger it, with a confirmation dialog spelling out exactly
+what will happen first.
+
 ## Architecture
 
 - **backend/** — Node.js + Express + TypeScript, Prisma/PostgreSQL for

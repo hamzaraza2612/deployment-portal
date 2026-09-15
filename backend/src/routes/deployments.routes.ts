@@ -11,6 +11,7 @@ import {
   checkoutBranchSchema,
   createDeploymentSchema,
   fetchBranchesSchema,
+  revertDeploymentSchema,
 } from "../validators/schemas";
 import {
   assertPathAllowed,
@@ -18,6 +19,7 @@ import {
   checkoutBranch,
   cloneOrPullAndListBranches,
   runDeployment,
+  runRevert,
   targetGitDir,
 } from "../services/deploy.service";
 
@@ -124,6 +126,8 @@ deploymentsRouter.get(
         status: true,
         startedAt: true,
         finishedAt: true,
+        isRevert: true,
+        revertedFromId: true,
         server: { select: { id: true, name: true } },
         repository: { select: { id: true, name: true } },
         triggeredBy: { select: { id: true, name: true, email: true } },
@@ -142,6 +146,7 @@ deploymentsRouter.get(
         server: { select: { id: true, name: true, host: true, environment: true } },
         repository: { select: { id: true, name: true, url: true } },
         triggeredBy: { select: { id: true, name: true, email: true } },
+        revertedFrom: { select: { id: true, appName: true, branch: true, startedAt: true } },
       },
     });
     if (!canAccessEnvironment(req.user!, deployment.server.environment)) {
@@ -187,5 +192,49 @@ deploymentsRouter.post(
     void runDeployment({ deploymentId: deployment.id });
 
     res.status(201).json(deployment);
+  })
+);
+
+deploymentsRouter.post(
+  "/:id/revert",
+  requireRole(...CAN_DEPLOY),
+  asyncHandler(async (req, res) => {
+    const body = revertDeploymentSchema.parse(req.body);
+    const target = await prisma.deployment.findUniqueOrThrow({
+      where: { id: req.params.id },
+      include: { server: true },
+    });
+    if (!canAccessEnvironment(req.user!, target.server.environment)) {
+      throw new HttpError(404, "Deployment not found");
+    }
+    if (target.status !== "SUCCESS") {
+      throw new HttpError(400, "Only a successful deployment can be reverted to");
+    }
+    if (!target.backupPath) {
+      throw new HttpError(400, "This deployment has no backup to revert to");
+    }
+
+    const revert = await prisma.deployment.create({
+      data: {
+        serverId: target.serverId,
+        repositoryId: target.repositoryId,
+        branch: target.branch,
+        sourcePath: target.backupPath,
+        basePath: target.basePath,
+        appName: target.appName,
+        appPath: target.appPath,
+        publishDir: target.publishDir,
+        backupName: body.backupName,
+        status: "PENDING",
+        triggeredById: req.user!.userId,
+        isRevert: true,
+        revertedFromId: target.id,
+      },
+    });
+
+    // Fire and forget: the client polls GET /:id for live status/log, same as a normal deploy.
+    void runRevert({ deploymentId: revert.id });
+
+    res.status(201).json(revert);
   })
 );

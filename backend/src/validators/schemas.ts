@@ -93,6 +93,10 @@ export const createDeploymentSchema = z.object({
   backupName: z.string().optional(),
 });
 
+export const revertDeploymentSchema = z.object({
+  backupName: z.string().optional(),
+});
+
 export const createAppLinkSchema = z.object({
   environment: z.string().min(1),
   name: z.string().min(1),

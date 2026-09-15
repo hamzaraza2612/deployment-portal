@@ -89,6 +89,8 @@ export interface DeploymentListItem {
   status: DeploymentStatus;
   startedAt: string;
   finishedAt: string | null;
+  isRevert: boolean;
+  revertedFromId: string | null;
   server: { id: string; name: string };
   repository: { id: string; name: string };
   triggeredBy: { id: string; name: string; email: string };
@@ -101,6 +103,7 @@ export interface DeploymentDetail extends Omit<DeploymentListItem, "server" | "r
   errorMessage: string | null;
   server: { id: string; name: string; host: string };
   repository: { id: string; name: string; url: string };
+  revertedFrom: { id: string; appName: string; branch: string; startedAt: string } | null;
 }
 
 export interface DashboardSummary {
