@@ -214,21 +214,33 @@ export function Deploy() {
       {step === 2 && (
         <div className="card">
           <div className="form-field">
-            <label>Branch</label>
-            <select value={branch} onChange={(e) => setBranch(e.target.value)}>
-              <option value="">Select a branch…</option>
+            <label>Branch ({branches.length} available — type to search)</label>
+            <input
+              list="branch-options"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              placeholder="Search or select a branch…"
+            />
+            <datalist id="branch-options">
               {branches.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
+                <option key={b} value={b} />
               ))}
-            </select>
+            </datalist>
+            {branch && !branches.includes(branch) && (
+              <div className="muted" style={{ fontSize: 12 }}>
+                No branch matches "{branch}" exactly.
+              </div>
+            )}
           </div>
           <div className="row-actions">
             <button className="btn" onClick={() => setStep(1)}>
               Back
             </button>
-            <button className="btn btn-primary" disabled={!branch || busy} onClick={handleCheckout}>
+            <button
+              className="btn btn-primary"
+              disabled={!branches.includes(branch) || busy}
+              onClick={handleCheckout}
+            >
               {busy ? "Checking out…" : "Checkout branch"}
             </button>
           </div>
@@ -264,18 +276,28 @@ export function Deploy() {
           </div>
           {basePath && (
             <div className="form-field">
-              <label>Application</label>
+              <label>Application ({apps.length} available — type to search)</label>
               {busy ? (
                 <div className="empty-state">Loading applications…</div>
               ) : (
-                <select value={appName} onChange={(e) => setAppName(e.target.value)}>
-                  <option value="">Select an application…</option>
-                  {apps.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <input
+                    list="app-options"
+                    value={appName}
+                    onChange={(e) => setAppName(e.target.value)}
+                    placeholder="Search or select an application…"
+                  />
+                  <datalist id="app-options">
+                    {apps.map((a) => (
+                      <option key={a} value={a} />
+                    ))}
+                  </datalist>
+                  {appName && !apps.includes(appName) && (
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      No application matches "{appName}" exactly.
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -283,7 +305,7 @@ export function Deploy() {
             <button className="btn" onClick={() => setStep(3)}>
               Back
             </button>
-            <button className="btn btn-primary" disabled={!appName} onClick={() => setStep(5)}>
+            <button className="btn btn-primary" disabled={!apps.includes(appName)} onClick={() => setStep(5)}>
               Continue
             </button>
           </div>

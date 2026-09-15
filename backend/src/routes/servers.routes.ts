@@ -6,6 +6,7 @@ import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { canAccessEnvironment, serverEnvironmentFilter } from "../lib/access";
 import { createServerSchema, updateServerSchema } from "../validators/schemas";
+import { getSystemStats } from "../services/system.service";
 import type { ServerConnectionInfo } from "../lib/ssh";
 
 export const serversRouter = Router();
@@ -120,6 +121,18 @@ serversRouter.delete(
   asyncHandler(async (req, res) => {
     await prisma.server.delete({ where: { id: req.params.id } });
     res.status(204).end();
+  })
+);
+
+serversRouter.get(
+  "/:id/system-stats",
+  asyncHandler(async (req, res) => {
+    const server = await prisma.server.findUniqueOrThrow({ where: { id: req.params.id } });
+    if (!canAccessEnvironment(req.user!, server.environment)) {
+      throw new HttpError(404, "Server not found");
+    }
+    const stats = await getSystemStats(server);
+    res.json(stats);
   })
 );
 
