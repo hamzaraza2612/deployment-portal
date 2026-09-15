@@ -1,5 +1,6 @@
 import { Client, type ConnectConfig } from "ssh2";
 import { decrypt } from "./crypto";
+import { HttpError } from "../middleware/errorHandler";
 
 export interface ServerConnectionInfo {
   host: string;
@@ -7,6 +8,8 @@ export interface ServerConnectionInfo {
   sshUser: string;
   authType: "PASSWORD" | "PRIVATE_KEY";
   secret: string; // encrypted at rest, decrypted by caller before use
+  /** Friendly name shown in connection-failure messages instead of raw host/IP. */
+  label?: string;
 }
 
 export interface ExecResult {
@@ -41,12 +44,20 @@ export async function withSSHConnection<T>(
 ): Promise<T> {
   const conn = new Client();
   try {
-    await new Promise<void>((resolve, reject) => {
-      conn
-        .on("ready", () => resolve())
-        .on("error", (err) => reject(err))
-        .connect(buildConnectConfig(info));
-    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        conn
+          .on("ready", () => resolve())
+          .on("error", (err) => reject(err))
+          .connect(buildConnectConfig(info));
+      });
+    } catch (err) {
+      // Swap ssh2's raw error ("All configured authentication methods failed", DNS
+      // failures, timeouts, ...) for a message an end user can actually act on —
+      // the real reason still goes to the server logs for whoever manages the app.
+      console.error(`SSH connection to ${info.label ?? info.host} failed:`, err);
+      throw new HttpError(502, `Unable to connect to ${info.label ?? info.host} server`);
+    }
     return await fn(conn);
   } finally {
     conn.end();
