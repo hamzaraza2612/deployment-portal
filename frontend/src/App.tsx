@@ -10,6 +10,8 @@ import { Users } from "./pages/Users";
 import { Deploy } from "./pages/Deploy";
 import { History } from "./pages/History";
 import { DeploymentDetail } from "./pages/DeploymentDetail";
+import { ContainerLogs } from "./pages/ContainerLogs";
+import { Links } from "./pages/Links";
 import type { Role } from "./lib/types";
 
 function FullScreenLoader() {
@@ -37,6 +39,14 @@ export default function App() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
       <Route
+        path="/environments/:serverId/containers/:containerId/logs"
+        element={
+          <RequireAuth>
+            <ContainerLogs />
+          </RequireAuth>
+        }
+      />
+      <Route
         element={
           <RequireAuth>
             <Layout />
@@ -55,6 +65,7 @@ export default function App() {
         <Route path="/history" element={<History />} />
         <Route path="/history/:id" element={<DeploymentDetail />} />
         <Route path="/environments" element={<Environments />} />
+        <Route path="/links" element={<Links />} />
         <Route path="/servers" element={<Servers />} />
         <Route path="/repositories" element={<Repositories />} />
         <Route

@@ -10,8 +10,13 @@ export function canAccessEnvironment(user: AuthTokenPayload, environment: string
   return user.allowedEnvironments.includes(environment);
 }
 
-/** Prisma `where` fragment for filtering a Server (or a relation to one) by the user's access. */
+/**
+ * Prisma `where` fragment for filtering any model with a plain `environment`
+ * string field (Server, AppLink, or a relation to one) by the user's access.
+ */
 export function serverEnvironmentFilter(user: AuthTokenPayload): { environment?: { in: string[] } } {
   const envs = accessibleEnvironments(user);
   return envs === "all" ? {} : { environment: { in: envs } };
 }
+
+export const environmentFilter = serverEnvironmentFilter;

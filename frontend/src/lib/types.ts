@@ -57,6 +57,18 @@ export interface SystemStats {
   diskAvailKb: number | null;
 }
 
+export interface AppLinkRecord {
+  id: string;
+  environment: string;
+  name: string;
+  url: string;
+  username: string | null;
+  password: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface RepositoryRecord {
   id: string;
   name: string;

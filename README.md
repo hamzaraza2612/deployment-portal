@@ -45,19 +45,43 @@ this out before anything runs. Containers not started via compose can be
 started/stopped/restarted but not recreated.
 
 Each server's card also shows **host-level CPU/RAM/disk usage** (via
-`vmstat`/`free`/`df` over SSH, refreshed every 10 seconds) and a running
-vs. stopped container count — a lightweight current-state view, not
-historical graphs. A search box filters that server's containers by name.
-A **Logs** button per container opens its `docker logs --tail N
---timestamps` output in a modal that auto-refreshes every 3 seconds, with
-a selectable tail length and a text filter over the displayed lines. All
-of this reads over the same on-demand SSH connection used everywhere else
-in the portal — no separate metrics/logging stack (Prometheus, Grafana,
-etc.) is required.
+`vmstat`/`free`/`df` over SSH, refreshed every 10 seconds) alongside a
+running vs. stopped container count in the same stat row — a lightweight
+current-state view, not historical graphs. A search box filters that
+server's containers by name. All of this reads over the same on-demand
+SSH connection used everywhere else in the portal — no separate
+metrics/logging stack (Prometheus, Grafana, etc.) is required.
+
+A **Logs** button per container opens `docker logs --tail N --timestamps`
+in its own full-page tab (`/environments/:serverId/containers/:id/logs`),
+not a small popup — auto-refreshing every 3 seconds, with a selectable
+tail length and a text filter over the displayed lines. Press **Enter**
+in the search box (or click "Mark now") to drop a divider at that point
+in the log, based on each line's own `--timestamps` prefix rather than
+text position — so it stays correctly placed even though every refresh
+re-fetches the whole tail window instead of appending. Anything logged
+after you hit Enter shows up below the divider, making it easy to see
+what's new since you started watching.
 
 The **Deploy** wizard's branch and application pickers are searchable
 (type to filter, matched against the full list fetched from the server)
 rather than long plain dropdowns.
+
+## Links
+
+A self-service directory of **application URLs and login credentials**,
+grouped by environment — for when a developer or QA tester just needs the
+URL and password for one of many apps without asking around. Each entry
+(name, URL, optional username/password/notes) is tagged with an
+environment the same way a Server is; a Dev-only user only ever sees Dev
+entries, QA only QA, and so on, enforced the same way as everything else
+(server-side, not just hidden in the UI). Passwords are encrypted at rest
+(AES-256-GCM) but — unlike SSH/git credentials, which the API never
+returns — are decrypted and sent to any user who has access to that
+environment, since the point of this page is exactly that: self-service
+lookup. Only Admins can add/edit/delete entries; everyone with access to
+an environment can view its entries, reveal/hide each password, and copy
+it.
 
 ## Architecture
 
