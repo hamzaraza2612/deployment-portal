@@ -126,6 +126,7 @@ serversRouter.delete(
 
 serversRouter.get(
   "/:id/system-stats",
+  requireRole("ADMIN"),
   asyncHandler(async (req, res) => {
     const server = await prisma.server.findUniqueOrThrow({ where: { id: req.params.id } });
     if (!canAccessEnvironment(req.user!, server.environment)) {

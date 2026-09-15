@@ -64,6 +64,51 @@ export async function listContainers(server: Server): Promise<ContainerInfo[]> {
     });
 }
 
+export interface ContainerStats {
+  id: string;
+  name: string;
+  cpuPercent: string;
+  memUsage: string;
+  memPercent: string;
+  netIO: string;
+  blockIO: string;
+}
+
+interface DockerStatsLine {
+  ID: string;
+  Name: string;
+  CPUPerc: string;
+  MemUsage: string;
+  MemPerc: string;
+  NetIO: string;
+  BlockIO: string;
+}
+
+/** One live snapshot per running container (docker stats only reports running ones), like `docker stats --no-stream`. */
+export async function getContainerStats(server: Server): Promise<ContainerStats[]> {
+  const info = toConnectionInfo(server);
+  const result = await execCommandOnServer(info, `docker stats --no-stream --format '{{json .}}'`);
+  if (result.code !== 0) {
+    throw new HttpError(502, `Failed to read container stats: ${result.stderr || result.stdout}`);
+  }
+  return result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const raw = JSON.parse(line) as DockerStatsLine;
+      return {
+        id: raw.ID,
+        name: raw.Name,
+        cpuPercent: raw.CPUPerc,
+        memUsage: raw.MemUsage,
+        memPercent: raw.MemPerc,
+        netIO: raw.NetIO,
+        blockIO: raw.BlockIO,
+      };
+    });
+}
+
 export async function getContainerLogs(
   server: Server,
   containerId: string,

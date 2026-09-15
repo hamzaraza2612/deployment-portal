@@ -1,88 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../lib/api";
-import type { ContainerInfo, ServerRecord, SystemStats } from "../lib/types";
+import type { ContainerInfo, ServerRecord } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../hooks/useConfirm";
-
-const SYSTEM_STATS_REFRESH_MS = 10000;
 
 function containerStateClass(state: string): string {
   if (state === "running") return "badge-SUCCESS";
   if (state === "restarting" || state === "created") return "badge-PENDING";
   if (state === "paused") return "badge-RUNNING";
   return "badge-FAILED"; // exited, dead, etc.
-}
-
-function formatMb(mb: number | null): string {
-  if (mb == null) return "—";
-  return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
-}
-
-function formatKb(kb: number | null): string {
-  if (kb == null) return "—";
-  return `${(kb / 1024 / 1024).toFixed(1)} GB`;
-}
-
-function SystemStatBar({
-  serverId,
-  runningCount,
-  stoppedCount,
-}: {
-  serverId: string;
-  runningCount: number;
-  stoppedCount: number;
-}) {
-  const [stats, setStats] = useState<SystemStats | null>(null);
-  const [error, setError] = useState(false);
-
-  function load() {
-    api
-      .get<SystemStats>(`/servers/${serverId}/system-stats`)
-      .then((s) => {
-        setStats(s);
-        setError(false);
-      })
-      .catch(() => setError(true));
-  }
-
-  useEffect(() => {
-    load();
-    const interval = window.setInterval(load, SYSTEM_STATS_REFRESH_MS);
-    return () => window.clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverId]);
-
-  return (
-    <div className="stat-grid" style={{ marginBottom: 14 }}>
-      <div className="stat-card">
-        <div className="stat-value">{stats?.cpuPercent == null ? "—" : `${stats.cpuPercent}%`}</div>
-        <div className="stat-label">CPU</div>
-      </div>
-      <div className="stat-card">
-        <div className="stat-value">{stats ? formatMb(stats.memUsedMb) : "—"}</div>
-        <div className="stat-label">
-          RAM used of {stats ? formatMb(stats.memTotalMb) : "—"}
-        </div>
-      </div>
-      <div className="stat-card">
-        <div className="stat-value">{stats ? formatKb(stats.diskUsedKb) : "—"}</div>
-        <div className="stat-label">
-          Disk used of {stats ? formatKb(stats.diskTotalKb) : "—"}
-        </div>
-      </div>
-      <div className="stat-card">
-        <div className="stat-value">
-          {runningCount} / {runningCount + stoppedCount}
-        </div>
-        <div className="stat-label">Containers running ({stoppedCount} stopped)</div>
-      </div>
-      {error && (
-        <div className="muted" style={{ fontSize: 12, gridColumn: "1 / -1" }}>
-          Host stats unavailable.
-        </div>
-      )}
-    </div>
-  );
 }
 
 function ServerContainers({ server }: { server: ServerRecord }) {
@@ -160,14 +86,18 @@ function ServerContainers({ server }: { server: ServerRecord }) {
           <strong>{server.name}</strong>
           <div className="muted" style={{ fontSize: 13 }}>
             {server.host}:{server.port}
+            {containers && (
+              <>
+                {" · "}
+                {runningCount} running, {stoppedCount} stopped
+              </>
+            )}
           </div>
         </div>
         <button className="btn btn-sm" onClick={load} disabled={loading}>
           {loading ? "Refreshing…" : "Refresh"}
         </button>
       </div>
-
-      <SystemStatBar serverId={server.id} runningCount={runningCount} stoppedCount={stoppedCount} />
 
       {error && <div className="alert alert-error">{error}</div>}
 
