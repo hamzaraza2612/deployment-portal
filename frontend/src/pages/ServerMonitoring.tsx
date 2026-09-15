@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../lib/api";
-import type { ServerRecord, SystemStats } from "../lib/types";
+import type { ServerRecord, SystemStats, VmServiceStatus } from "../lib/types";
 
 const REFRESH_MS = 10000;
+const SERVICES_REFRESH_MS = 15000;
 
 function formatMb(mb: number | null): string {
   if (mb == null) return "—";
@@ -19,6 +20,71 @@ function percentClass(pct: number | null): string {
   if (pct >= 90) return "badge-FAILED";
   if (pct >= 75) return "badge-PENDING";
   return "badge-SUCCESS";
+}
+
+function formatServiceMem(kb: number | null): string {
+  if (kb == null) return "—";
+  return kb >= 1024 * 1024 ? `${(kb / 1024 / 1024).toFixed(1)} GB` : `${(kb / 1024).toFixed(0)} MB`;
+}
+
+function VmServicesTable({ serverId }: { serverId: string }) {
+  const [services, setServices] = useState<VmServiceStatus[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function load() {
+    api
+      .get<VmServiceStatus[]>(`/servers/${serverId}/vm-services`)
+      .then((data) => {
+        setServices(data);
+        setError(null);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to check services"));
+  }
+
+  useEffect(() => {
+    load();
+    const interval = window.setInterval(load, SERVICES_REFRESH_MS);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverId]);
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
+        Common services (auto-detected — systemd, then well-known port, then process name)
+      </div>
+      {error && <div className="alert alert-error">{error}</div>}
+      {!error && services === null && <div className="empty-state">Checking services…</div>}
+      {services && (
+        <table>
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Status</th>
+              <th>Detected via</th>
+              <th>CPU</th>
+              <th>Memory</th>
+            </tr>
+          </thead>
+          <tbody>
+            {services.map((s) => (
+              <tr key={s.name}>
+                <td>{s.name}</td>
+                <td>
+                  <span className={`badge ${s.running ? "badge-SUCCESS" : "badge-FAILED"}`}>
+                    {s.running ? "Running" : "Not found"}
+                  </span>
+                </td>
+                <td className="muted">{s.running ? s.method : "—"}</td>
+                <td className="muted">{s.cpuPercent != null ? `${s.cpuPercent}%` : "—"}</td>
+                <td className="muted">{formatServiceMem(s.memKb)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
 }
 
 function ServerStatCard({ server }: { server: ServerRecord }) {
@@ -83,6 +149,8 @@ function ServerStatCard({ server }: { server: ServerRecord }) {
           <div className="stat-label">Disk used of {formatKb(stats?.diskTotalKb ?? null)}</div>
         </div>
       </div>
+
+      <VmServicesTable serverId={server.id} />
     </div>
   );
 }

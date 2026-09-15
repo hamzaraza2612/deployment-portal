@@ -7,6 +7,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { canAccessEnvironment, serverEnvironmentFilter } from "../lib/access";
 import { createServerSchema, updateServerSchema } from "../validators/schemas";
 import { getSystemStats } from "../services/system.service";
+import { getVmServiceStatus } from "../services/vmservices.service";
 import type { ServerConnectionInfo } from "../lib/ssh";
 
 export const serversRouter = Router();
@@ -134,6 +135,19 @@ serversRouter.get(
     }
     const stats = await getSystemStats(server);
     res.json(stats);
+  })
+);
+
+serversRouter.get(
+  "/:id/vm-services",
+  requireRole("ADMIN"),
+  asyncHandler(async (req, res) => {
+    const server = await prisma.server.findUniqueOrThrow({ where: { id: req.params.id } });
+    if (!canAccessEnvironment(req.user!, server.environment)) {
+      throw new HttpError(404, "Server not found");
+    }
+    const services = await getVmServiceStatus(server);
+    res.json(services);
   })
 );
 
