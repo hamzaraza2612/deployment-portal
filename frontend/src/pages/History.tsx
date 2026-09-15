@@ -127,6 +127,11 @@ export function History() {
                         )}
                       </div>
                     )}
+                    {d.promotionRequestAsResult && (
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        → promoted
+                      </div>
+                    )}
                   </td>
                   <td>{d.server.name}</td>
                   <td>{d.branch}</td>

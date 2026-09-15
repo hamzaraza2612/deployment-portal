@@ -135,6 +135,38 @@ the audit trail stays intact. Only successful deployments can be reverted to
 Operators can trigger it, with a confirmation dialog spelling out exactly
 what will happen first.
 
+## Promotions (sending a build to another environment)
+
+When a build has been deployed and verified on one environment, a developer
+can **send it on** to another environment (Dev → QA, QA → UAT, and so on —
+this isn't hardcoded to any one pair) without redoing the deploy wizard by
+hand on the target server.
+
+1. On a **successful** deployment's detail page, an Admin/Operator picks a
+   target environment and clicks **Send**. This creates a **promotion
+   request** — visible on the new **Promotions** page to anyone with access
+   to that target environment, with a pending-count badge in the sidebar.
+   Sending is opt-in per deployment; nothing is promoted automatically.
+2. On the **Promotions** page, an Admin/Operator for the target environment
+   picks the target server, deployment path, and application (auto-suggested
+   when a same-named app exists, but always editable — app names aren't
+   assumed to line up across every environment) and clicks **Deploy**.
+3. This re-runs the **same deploy pipeline** used everywhere else in the
+   portal: git checkout of the exact branch that was deployed on the source
+   environment, on the target server's own clone of the repo, then the usual
+   rsync-and-restart — including the same excludes (`appsettings*.json`,
+   `*securesettings*.json`, `config.json`), so the target environment's own
+   config and secrets are left untouched. The result is a normal new
+   **History** entry (tagged "→ promoted", linking back to the source
+   deployment), not a special-cased one.
+4. A pending request can also be **cancelled**. Sending a newer deployment of
+   the same app to the same target environment automatically supersedes
+   (cancels) any older pending request for it, so the Promotions list never
+   holds two stale asks for the same thing.
+
+The existing manual **Deploy** wizard is unaffected — Promotions is a purely
+additive shortcut for the common "same build, next environment" case.
+
 ## Architecture
 
 - **backend/** — Node.js + Express + TypeScript, Prisma/PostgreSQL for

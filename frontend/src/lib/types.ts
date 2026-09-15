@@ -109,12 +109,13 @@ export interface DeploymentListItem {
   finishedAt: string | null;
   isRevert: boolean;
   revertedFromId: string | null;
+  promotionRequestAsResult: { id: string } | null;
   server: { id: string; name: string };
   repository: { id: string; name: string };
   triggeredBy: { id: string; name: string; email: string };
 }
 
-export interface DeploymentDetail extends Omit<DeploymentListItem, "server" | "repository"> {
+export interface DeploymentDetail extends Omit<DeploymentListItem, "server" | "repository" | "promotionRequestAsResult"> {
   publishDir: string;
   backupPath: string | null;
   log: string;
@@ -122,6 +123,40 @@ export interface DeploymentDetail extends Omit<DeploymentListItem, "server" | "r
   server: { id: string; name: string; host: string };
   repository: { id: string; name: string; url: string };
   revertedFrom: { id: string; appName: string; branch: string; startedAt: string } | null;
+  promotionRequestAsResult: {
+    id: string;
+    sourceDeployment: {
+      id: string;
+      appName: string;
+      branch: string;
+      startedAt: string;
+      server: { id: string; name: string; environment: string };
+    };
+  } | null;
+}
+
+export type PromotionStatus = "PENDING" | "DEPLOYED" | "CANCELLED";
+
+export interface PromotionRequestListItem {
+  id: string;
+  targetEnvironment: string;
+  targetServerId: string | null;
+  targetBasePath: string | null;
+  targetAppName: string | null;
+  status: PromotionStatus;
+  createdAt: string;
+  updatedAt: string;
+  requestedBy: { id: string; name: string; email: string };
+  targetServer: { id: string; name: string } | null;
+  sourceDeployment: {
+    id: string;
+    appName: string;
+    branch: string;
+    basePath: string;
+    startedAt: string;
+    server: { id: string; name: string; environment: string };
+  };
+  resultDeployment: { id: string; status: DeploymentStatus } | null;
 }
 
 export interface DashboardSummary {

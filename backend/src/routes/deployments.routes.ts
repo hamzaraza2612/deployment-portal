@@ -11,6 +11,7 @@ import {
   checkoutBranchSchema,
   createDeploymentSchema,
   fetchBranchesSchema,
+  promoteDeploymentSchema,
   revertDeploymentSchema,
 } from "../validators/schemas";
 import {
@@ -128,6 +129,7 @@ deploymentsRouter.get(
         finishedAt: true,
         isRevert: true,
         revertedFromId: true,
+        promotionRequestAsResult: { select: { id: true } },
         server: { select: { id: true, name: true } },
         repository: { select: { id: true, name: true } },
         triggeredBy: { select: { id: true, name: true, email: true } },
@@ -147,6 +149,20 @@ deploymentsRouter.get(
         repository: { select: { id: true, name: true, url: true } },
         triggeredBy: { select: { id: true, name: true, email: true } },
         revertedFrom: { select: { id: true, appName: true, branch: true, startedAt: true } },
+        promotionRequestAsResult: {
+          select: {
+            id: true,
+            sourceDeployment: {
+              select: {
+                id: true,
+                appName: true,
+                branch: true,
+                startedAt: true,
+                server: { select: { id: true, name: true, environment: true } },
+              },
+            },
+          },
+        },
       },
     });
     if (!canAccessEnvironment(req.user!, deployment.server.environment)) {
@@ -236,5 +252,54 @@ deploymentsRouter.post(
     void runRevert({ deploymentId: revert.id });
 
     res.status(201).json(revert);
+  })
+);
+
+deploymentsRouter.post(
+  "/:id/promote",
+  requireRole(...CAN_DEPLOY),
+  asyncHandler(async (req, res) => {
+    const body = promoteDeploymentSchema.parse(req.body);
+    const source = await prisma.deployment.findUniqueOrThrow({
+      where: { id: req.params.id },
+      include: { server: true },
+    });
+    if (!canAccessEnvironment(req.user!, source.server.environment)) {
+      throw new HttpError(404, "Deployment not found");
+    }
+    if (source.status !== "SUCCESS") {
+      throw new HttpError(400, "Only a successful deployment can be sent to another environment");
+    }
+    if (body.targetEnvironment === source.server.environment) {
+      throw new HttpError(400, "Target environment must be different from this deployment's own environment");
+    }
+
+    const targetHasServers = await prisma.server.findFirst({
+      where: { environment: body.targetEnvironment },
+      select: { id: true },
+    });
+    if (!targetHasServers) {
+      throw new HttpError(400, `No servers are registered in the "${body.targetEnvironment}" environment`);
+    }
+
+    // An older pending request for the same app to the same target environment is superseded by this one.
+    await prisma.promotionRequest.updateMany({
+      where: {
+        status: "PENDING",
+        targetEnvironment: body.targetEnvironment,
+        sourceDeployment: { serverId: source.serverId, appName: source.appName },
+      },
+      data: { status: "CANCELLED" },
+    });
+
+    const request = await prisma.promotionRequest.create({
+      data: {
+        sourceDeploymentId: source.id,
+        targetEnvironment: body.targetEnvironment,
+        requestedById: req.user!.userId,
+      },
+    });
+
+    res.status(201).json(request);
   })
 );

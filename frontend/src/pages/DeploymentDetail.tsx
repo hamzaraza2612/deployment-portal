@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
-import type { DeploymentDetail as DeploymentDetailType } from "../lib/types";
+import type { DeploymentDetail as DeploymentDetailType, ServerRecord } from "../lib/types";
 import { Badge, formatDateTime, formatDuration } from "../components/Badge";
 import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../hooks/useConfirm";
@@ -16,6 +16,11 @@ export function DeploymentDetail() {
   const [deployment, setDeployment] = useState<DeploymentDetailType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reverting, setReverting] = useState(false);
+
+  const [servers, setServers] = useState<ServerRecord[]>([]);
+  const [targetEnv, setTargetEnv] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendMessage, setSendMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -42,6 +47,10 @@ export function DeploymentDetail() {
     };
   }, [id]);
 
+  useEffect(() => {
+    api.get<ServerRecord[]>("/servers").then(setServers).catch(() => undefined);
+  }, []);
+
   async function handleRevert() {
     if (!deployment) return;
     const backupLabel = deployment.backupName ?? "this deployment's backup";
@@ -62,8 +71,30 @@ export function DeploymentDetail() {
     }
   }
 
+  async function handleSend() {
+    if (!deployment || !targetEnv) return;
+    setSending(true);
+    setSendMessage(null);
+    setError(null);
+    try {
+      await api.post(`/deployments/${deployment.id}/promote`, { targetEnvironment: targetEnv });
+      setSendMessage(
+        `Sent to ${targetEnv} — visible on the Promotions page for anyone with access to that environment.`
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to send to that environment");
+    } finally {
+      setSending(false);
+    }
+  }
+
   if (error) return <div className="alert alert-error">{error}</div>;
   if (!deployment) return <div className="empty-state">Loading…</div>;
+
+  const sourceEnvironment = servers.find((s) => s.id === deployment.server.id)?.environment;
+  const sendableEnvironments = Array.from(new Set(servers.map((s) => s.environment))).filter(
+    (env) => env !== sourceEnvironment
+  );
 
   return (
     <div>
@@ -85,13 +116,41 @@ export function DeploymentDetail() {
               </Link>
             </div>
           )}
+          {deployment.promotionRequestAsResult && (
+            <div className="alert alert-info" style={{ marginTop: 10 }}>
+              → Promoted from{" "}
+              <Link to={`/history/${deployment.promotionRequestAsResult.sourceDeployment.id}`}>
+                {deployment.promotionRequestAsResult.sourceDeployment.appName} (
+                {deployment.promotionRequestAsResult.sourceDeployment.server.environment})
+              </Link>
+            </div>
+          )}
         </div>
         {canDeploy && deployment.status === "SUCCESS" && (
-          <button className="btn" disabled={reverting} onClick={handleRevert}>
-            {reverting ? "Starting…" : "Revert to this"}
-          </button>
+          <div className="row-actions" style={{ alignItems: "flex-start" }}>
+            {sendableEnvironments.length > 0 && (
+              <>
+                <select value={targetEnv} onChange={(e) => setTargetEnv(e.target.value)} style={{ padding: "8px 10px" }}>
+                  <option value="">Send to environment…</option>
+                  {sendableEnvironments.map((env) => (
+                    <option key={env} value={env}>
+                      {env}
+                    </option>
+                  ))}
+                </select>
+                <button className="btn" disabled={!targetEnv || sending} onClick={handleSend}>
+                  {sending ? "Sending…" : "Send"}
+                </button>
+              </>
+            )}
+            <button className="btn" disabled={reverting} onClick={handleRevert}>
+              {reverting ? "Starting…" : "Revert to this"}
+            </button>
+          </div>
         )}
       </div>
+
+      {sendMessage && <div className="alert alert-info">{sendMessage}</div>}
 
       <div className="card">
         <dl className="summary-list">

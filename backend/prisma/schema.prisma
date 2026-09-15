@@ -29,6 +29,12 @@ enum DeploymentStatus {
   FAILED
 }
 
+enum PromotionStatus {
+  PENDING
+  DEPLOYED
+  CANCELLED
+}
+
 model User {
   id                 String       @id @default(cuid())
   email              String       @unique
@@ -40,6 +46,7 @@ model User {
   allowedEnvironments String[]    @default([])
   createdAt          DateTime     @default(now())
   deployments        Deployment[]
+  promotionRequests  PromotionRequest[]
 }
 
 model Server {
@@ -60,6 +67,7 @@ model Server {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   deployments   Deployment[]
+  promotionRequests PromotionRequest[]
 }
 
 model Repository {
@@ -103,7 +111,41 @@ model Deployment {
   revertedFromId String?
   revertedBy     Deployment[]     @relation("DeploymentRevert")
 
+  // Promotion requests that used this deployment as their source (e.g. "sent to QA").
+  promotionRequestsAsSource PromotionRequest[] @relation("PromotionSource")
+  // Set when this deployment row IS the executed result of a promotion.
+  promotionRequestAsResult  PromotionRequest?  @relation("PromotionResult")
+
   @@index([serverId])
+  @@index([status])
+}
+
+// A developer-initiated "please deploy this build to <environment>" request,
+// e.g. "send this Dev deployment to QA". Created with the target environment
+// only; the target server/app is resolved (auto-suggested, always editable)
+// by whoever acts on it in the Promotions page, since app-folder naming can
+// differ per environment (e.g. Production). Executing one creates a normal
+// Deployment row via the same deploy pipeline as a manual deploy — it just
+// re-checks-out the same branch and reuses the same relative source path on
+// the target server, rather than hand-copying built files across servers.
+model PromotionRequest {
+  id                 String           @id @default(cuid())
+  sourceDeployment   Deployment       @relation("PromotionSource", fields: [sourceDeploymentId], references: [id])
+  sourceDeploymentId String
+  targetEnvironment  String
+  targetServer       Server?          @relation(fields: [targetServerId], references: [id])
+  targetServerId     String?
+  targetBasePath     String?
+  targetAppName      String?
+  status             PromotionStatus  @default(PENDING)
+  requestedBy        User             @relation(fields: [requestedById], references: [id])
+  requestedById      String
+  resultDeployment   Deployment?      @relation("PromotionResult", fields: [resultDeploymentId], references: [id])
+  resultDeploymentId String?          @unique
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([targetEnvironment])
   @@index([status])
 }
 

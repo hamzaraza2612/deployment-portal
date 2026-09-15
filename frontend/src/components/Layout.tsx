@@ -1,10 +1,16 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../lib/api";
+import type { PromotionRequestListItem } from "../lib/types";
+
+const PENDING_PROMOTIONS_REFRESH_MS = 15000;
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
   { to: "/deploy", label: "Deploy", roles: ["ADMIN", "OPERATOR"] },
   { to: "/history", label: "History", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
+  { to: "/promotions", label: "Promotions", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
   { to: "/environments", label: "Environments", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
   { to: "/docker-stats", label: "Docker Stats", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
   { to: "/server-monitoring", label: "Server Monitoring", roles: ["ADMIN"] },
@@ -16,6 +22,28 @@ const NAV_ITEMS = [
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const [pendingPromotions, setPendingPromotions] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    function load() {
+      api
+        .get<PromotionRequestListItem[]>("/promotions?status=PENDING")
+        .then((requests) => {
+          if (!cancelled) setPendingPromotions(requests.length);
+        })
+        .catch(() => undefined);
+    }
+
+    load();
+    const timer = window.setInterval(load, PENDING_PROMOTIONS_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [user]);
 
   return (
     <div className="app-shell">
@@ -30,6 +58,9 @@ export function Layout() {
               className={({ isActive }) => "sidebar-link" + (isActive ? " active" : "")}
             >
               {item.label}
+              {item.to === "/promotions" && pendingPromotions > 0 && (
+                <span className="nav-badge">{pendingPromotions}</span>
+              )}
             </NavLink>
           ))}
         </nav>
