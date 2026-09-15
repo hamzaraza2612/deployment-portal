@@ -14,6 +14,7 @@ import { ContainerLogs } from "./pages/ContainerLogs";
 import { Links } from "./pages/Links";
 import { DockerStats } from "./pages/DockerStats";
 import { ServerMonitoring } from "./pages/ServerMonitoring";
+import { Promotions } from "./pages/Promotions";
 import type { Role } from "./lib/types";
 
 function FullScreenLoader() {
@@ -66,6 +67,7 @@ export default function App() {
         />
         <Route path="/history" element={<History />} />
         <Route path="/history/:id" element={<DeploymentDetail />} />
+        <Route path="/promotions" element={<Promotions />} />
         <Route path="/environments" element={<Environments />} />
         <Route path="/docker-stats" element={<DockerStats />} />
         <Route

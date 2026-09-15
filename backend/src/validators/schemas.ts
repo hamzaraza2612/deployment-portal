@@ -97,6 +97,16 @@ export const revertDeploymentSchema = z.object({
   backupName: z.string().optional(),
 });
 
+export const promoteDeploymentSchema = z.object({
+  targetEnvironment: z.string().min(1),
+});
+
+export const deployPromotionSchema = z.object({
+  targetServerId: z.string().min(1).optional(),
+  basePath: z.string().min(1).optional(),
+  appName: z.string().min(1).optional(),
+});
+
 export const createAppLinkSchema = z.object({
   environment: z.string().min(1),
   name: z.string().min(1),

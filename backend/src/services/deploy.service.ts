@@ -46,6 +46,32 @@ export function targetGitDir(server: Server, repository: Repository): string {
   return path.posix.join(server.gitBaseDir, repoNameFromUrl(repository.url));
 }
 
+/**
+ * Promotion (Strategy A: re-run the same recipe on the target server rather than
+ * copying built files) needs the equivalent of a deployment's sourcePath on a
+ * different server — same relative location inside that repo's checkout, just
+ * rooted under the target server's own gitBaseDir instead of the source's.
+ */
+export function computeTargetSourcePath(
+  sourceServer: Server,
+  targetServer: Server,
+  repository: Repository,
+  sourceSourcePath: string
+): string {
+  const sourceGitDir = path.posix.normalize(targetGitDir(sourceServer, repository));
+  const normalizedSource = path.posix.normalize(sourceSourcePath);
+  const isUnderGitDir =
+    normalizedSource === sourceGitDir || normalizedSource.startsWith(sourceGitDir.replace(/\/+$/, "") + "/");
+  if (!isUnderGitDir) {
+    throw new HttpError(
+      400,
+      "This deployment's source wasn't from a git checkout, so it can't be promoted automatically."
+    );
+  }
+  const relative = normalizedSource.slice(sourceGitDir.length);
+  return path.posix.join(targetGitDir(targetServer, repository), relative);
+}
+
 /** Every path browsed or used for a deployment must live under the server's git dir or one of its declared base paths. */
 export function assertPathAllowed(server: Server, targetPath: string) {
   const normalized = path.posix.normalize(targetPath);
