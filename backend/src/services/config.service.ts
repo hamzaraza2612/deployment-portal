@@ -13,12 +13,12 @@ import {
  * Same set of filenames the deploy pipeline's rsync excludes (deploy.service.ts) — files that
  * live only on the target server and survive every deploy untouched. This is deliberately the
  * exact same set: whatever a deploy leaves alone is what's safe to hand-edit here, no more.
- * Searched at any depth under publish (some apps nest config.json in a subfolder), but never
- * inside anything that looks like a backup folder — this portal's own "Backups", but also any
- * manually-made one on the server (e.g. "Backup", "Backup 18-8-2025") — matched case-insensitively
- * and by prefix so any naming variant of "backup" is excluded, not just our own exact convention.
+ * Searched at any depth under publish (some apps nest config.json in a subfolder, e.g.
+ * "wwwroot/config.json"), with no folder-name filtering — a naming guess is fragile and can
+ * miss a future variant. The full relativePath is always shown, so it's clear at a glance which
+ * entry is the live one under publish and which sits inside some backup folder someone made.
  */
-const CONFIG_FILE_MATCH = `\\( -name 'appsettings*.json' -o -name '*securesettings*.json' -o -name 'config.json' \\) -not -ipath '*/backup*/*'`;
+const CONFIG_FILE_MATCH = `\\( -name 'appsettings*.json' -o -name '*securesettings*.json' -o -name 'config.json' \\)`;
 
 export interface ConfigFileEntry {
   relativePath: string;
