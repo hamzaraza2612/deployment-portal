@@ -15,6 +15,7 @@ import { Links } from "./pages/Links";
 import { DockerStats } from "./pages/DockerStats";
 import { ServerMonitoring } from "./pages/ServerMonitoring";
 import { Promotions } from "./pages/Promotions";
+import { ConfigFiles } from "./pages/ConfigFiles";
 import type { Role } from "./lib/types";
 
 function FullScreenLoader() {
@@ -68,6 +69,14 @@ export default function App() {
         <Route path="/history" element={<History />} />
         <Route path="/history/:id" element={<DeploymentDetail />} />
         <Route path="/promotions" element={<Promotions />} />
+        <Route
+          path="/config-files"
+          element={
+            <RequireAuth roles={["ADMIN", "OPERATOR"]}>
+              <ConfigFiles />
+            </RequireAuth>
+          }
+        />
         <Route path="/environments" element={<Environments />} />
         <Route path="/docker-stats" element={<DockerStats />} />
         <Route

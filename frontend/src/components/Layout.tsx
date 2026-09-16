@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: "/docker-stats", label: "Docker Stats", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
   { to: "/server-monitoring", label: "Server Monitoring", roles: ["ADMIN"] },
   { to: "/links", label: "Links", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
+  { to: "/config-files", label: "Config Files", roles: ["ADMIN", "OPERATOR"] },
   { to: "/servers", label: "Servers", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
   { to: "/repositories", label: "Repositories", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
   { to: "/users", label: "Users", roles: ["ADMIN"] },
