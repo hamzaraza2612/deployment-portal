@@ -14,9 +14,11 @@ import {
  * live only on the target server and survive every deploy untouched. This is deliberately the
  * exact same set: whatever a deploy leaves alone is what's safe to hand-edit here, no more.
  * Searched at any depth under publish (some apps nest config.json in a subfolder), but never
- * inside a "Backups" folder — that's this portal's own backup convention, not a real config file.
+ * inside anything that looks like a backup folder — this portal's own "Backups", but also any
+ * manually-made one on the server (e.g. "Backup", "Backup 18-8-2025") — matched case-insensitively
+ * and by prefix so any naming variant of "backup" is excluded, not just our own exact convention.
  */
-const CONFIG_FILE_MATCH = `\\( -name 'appsettings*.json' -o -name '*securesettings*.json' -o -name 'config.json' \\) -not -path '*/Backups/*'`;
+const CONFIG_FILE_MATCH = `\\( -name 'appsettings*.json' -o -name '*securesettings*.json' -o -name 'config.json' \\) -not -ipath '*/backup*/*'`;
 
 export interface ConfigFileEntry {
   relativePath: string;
