@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import type { PromotionRequestListItem, PromotionStatus, ServerRecord } from "../lib/types";
 import { Badge, formatDateTime } from "../components/Badge";
+import { SearchSelect } from "../components/SearchSelect";
 import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../hooks/useConfirm";
 
@@ -157,17 +158,12 @@ function PromotionRow({
           {basePath && (
             <div className="form-field">
               <label>Application {loadingApps && "(loading…)"}</label>
-              <input
-                list={`apps-${request.id}`}
+              <SearchSelect
+                options={apps}
                 value={appName}
-                onChange={(e) => setAppName(e.target.value)}
+                onChange={setAppName}
                 placeholder="Search or select an application…"
               />
-              <datalist id={`apps-${request.id}`}>
-                {apps.map((a) => (
-                  <option key={a} value={a} />
-                ))}
-              </datalist>
               {appName && !apps.includes(appName) && (
                 <div className="muted" style={{ fontSize: 12 }}>
                   No application matches "{appName}" exactly.
