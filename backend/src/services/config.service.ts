@@ -13,10 +13,9 @@ import {
  * Same set of filenames the deploy pipeline's rsync excludes (deploy.service.ts) — files that
  * live only on the target server and survive every deploy untouched. This is deliberately the
  * exact same set: whatever a deploy leaves alone is what's safe to hand-edit here, no more.
- * Searched at any depth under publish (some apps nest config.json in a subfolder, e.g.
- * "wwwroot/config.json"), with no folder-name filtering — a naming guess is fragile and can
- * miss a future variant. The full relativePath is always shown, so it's clear at a glance which
- * entry is the live one under publish and which sits inside some backup folder someone made.
+ * Restricted to publish's own top level only (-maxdepth 1) — real servers have manual backup
+ * folders nested inside publish under all sorts of names, and no name-based filter reliably
+ * keeps those out, so this simply never looks past publish itself.
  */
 const CONFIG_FILE_MATCH = `\\( -name 'appsettings*.json' -o -name '*securesettings*.json' -o -name 'config.json' \\)`;
 
@@ -39,7 +38,7 @@ export async function listConfigFiles(server: Server, appPath: string): Promise<
   const publishDir = publishDirFor(appPath);
   assertPathAllowed(server, publishDir);
   const info = toConnectionInfo(server);
-  const command = `find ${shQuote(publishDir)} -type f ${CONFIG_FILE_MATCH} -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | sort`;
+  const command = `find ${shQuote(publishDir)} -maxdepth 1 -type f ${CONFIG_FILE_MATCH} -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | sort`;
   const result = await execCommandOnServer(info, command);
   return result.stdout
     .split("\n")
