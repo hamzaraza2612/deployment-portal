@@ -13,11 +13,12 @@ import {
  * Same set of filenames the deploy pipeline's rsync excludes (deploy.service.ts) — files that
  * live only on the target server and survive every deploy untouched. This is deliberately the
  * exact same set: whatever a deploy leaves alone is what's safe to hand-edit here, no more.
- * Restricted to publish's own top level only (-maxdepth 1) — real servers have manual backup
- * folders nested inside publish under all sorts of names, and no name-based filter reliably
- * keeps those out, so this simply never looks past publish itself.
+ * Config files can live in any subfolder under publish (not just the root), so this searches
+ * the whole tree — but never inside anything that looks like a backup folder someone made
+ * inside publish (matched case-insensitively by name: "Backup", "Backups", "Backup 18-8-2025",
+ * any variant), since those aren't real app config, they're leftover copies.
  */
-const CONFIG_FILE_MATCH = `\\( -name 'appsettings*.json' -o -name '*securesettings*.json' -o -name 'config.json' \\)`;
+const CONFIG_FILE_MATCH = `\\( -name 'appsettings*.json' -o -name '*securesettings*.json' -o -name 'config.json' \\) -not -ipath '*/backup*/*'`;
 
 export interface ConfigFileEntry {
   relativePath: string;
@@ -38,7 +39,7 @@ export async function listConfigFiles(server: Server, appPath: string): Promise<
   const publishDir = publishDirFor(appPath);
   assertPathAllowed(server, publishDir);
   const info = toConnectionInfo(server);
-  const command = `find ${shQuote(publishDir)} -maxdepth 1 -type f ${CONFIG_FILE_MATCH} -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | sort`;
+  const command = `find ${shQuote(publishDir)} -type f ${CONFIG_FILE_MATCH} -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | sort`;
   const result = await execCommandOnServer(info, command);
   return result.stdout
     .split("\n")
