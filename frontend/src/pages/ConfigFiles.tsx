@@ -58,7 +58,10 @@ export function ConfigFiles() {
 
   function handleEnvironmentChange(env: string) {
     setEnvironment(env);
-    setServerId("");
+    // Auto-pick the server only when this environment has exactly one — Production-style
+    // environments with several servers still need a manual pick, so leave those blank.
+    const matches = servers.filter((s) => s.environment === env);
+    setServerId(matches.length === 1 ? matches[0].id : "");
     setBasePath("");
     resetApp();
   }
@@ -178,6 +181,18 @@ export function ConfigFiles() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleCancel() {
+    if (dirty) {
+      const ok = await confirm(`Discard unsaved changes to ${selectedFile}?`, {
+        title: "Discard changes",
+        confirmLabel: "Discard",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    closeFile();
   }
 
   async function handleRestore(backupName: string) {
@@ -319,13 +334,18 @@ export function ConfigFiles() {
                 </span>
               )}
             </div>
-            <button
-              className="btn btn-primary"
-              disabled={loadingContent || saving || !dirty || !!jsonError}
-              onClick={handleSave}
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
+            <div className="row-actions">
+              <button className="btn" disabled={saving} onClick={handleCancel}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={loadingContent || saving || !dirty || !!jsonError}
+                onClick={handleSave}
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+            </div>
           </div>
 
           {message && <div className="alert alert-info">{message}</div>}
