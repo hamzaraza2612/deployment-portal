@@ -13,10 +13,10 @@ import {
  * Same set of filenames the deploy pipeline's rsync excludes (deploy.service.ts) — files that
  * live only on the target server and survive every deploy untouched. This is deliberately the
  * exact same set: whatever a deploy leaves alone is what's safe to hand-edit here, no more.
- * Restricted to the publish folder's own top level (-maxdepth 1) so nested folders — a manual
- * backup copy someone made inside publish, for instance — never show up as editable entries.
+ * Searched at any depth under publish (some apps nest config.json in a subfolder), but never
+ * inside a "Backups" folder — that's this portal's own backup convention, not a real config file.
  */
-const CONFIG_FILE_MATCH = `\\( -name 'appsettings*.json' -o -name '*securesettings*.json' -o -name 'config.json' \\)`;
+const CONFIG_FILE_MATCH = `\\( -name 'appsettings*.json' -o -name '*securesettings*.json' -o -name 'config.json' \\) -not -path '*/Backups/*'`;
 
 export interface ConfigFileEntry {
   relativePath: string;
@@ -37,7 +37,7 @@ export async function listConfigFiles(server: Server, appPath: string): Promise<
   const publishDir = publishDirFor(appPath);
   assertPathAllowed(server, publishDir);
   const info = toConnectionInfo(server);
-  const command = `find ${shQuote(publishDir)} -maxdepth 1 -type f ${CONFIG_FILE_MATCH} -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | sort`;
+  const command = `find ${shQuote(publishDir)} -type f ${CONFIG_FILE_MATCH} -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | sort`;
   const result = await execCommandOnServer(info, command);
   return result.stdout
     .split("\n")
