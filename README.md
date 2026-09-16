@@ -203,7 +203,6 @@ of truth for these files, exactly like the rest of the portal; the portal is
 only ever a controlled window into it. Backups are never automatically
 pruned. Only files that already exist can be edited (not created) in this
 first version.
-
 ## Architecture
 
 - **backend/** — Node.js + Express + TypeScript, Prisma/PostgreSQL for
