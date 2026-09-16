@@ -28,7 +28,7 @@ export function Login() {
   return (
     <div className="login-screen">
       <div className="card login-card">
-        <h1 style={{ marginTop: 0, fontSize: 20 }}>DevOps Portal</h1>
+        <h1 style={{ marginTop: 0, fontSize: 26, fontWeight: 800 }}>DevOps Portal</h1>
         <p className="page-subtitle" style={{ marginBottom: 18 }}>
           Sign in to manage centralized deployments across your environments.
         </p>
