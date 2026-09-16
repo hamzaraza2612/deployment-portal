@@ -6,3 +6,4 @@ build/
 .DS_Store
 backend/generated/
 frontend/dist/
+data/

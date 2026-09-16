@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import type { PromotionRequestListItem } from "../lib/types";
+import { DownContainersAlert } from "./DownContainersAlert";
 
 const PENDING_PROMOTIONS_REFRESH_MS = 15000;
 
@@ -49,7 +50,7 @@ export function Layout() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-brand">Deployment Portal</div>
+        <div className="sidebar-brand">DevOps Portal</div>
         <nav className="sidebar-nav">
           {NAV_ITEMS.filter((item) => !user || item.roles.includes(user.role)).map((item) => (
             <NavLink
@@ -68,6 +69,7 @@ export function Layout() {
       </aside>
       <div className="content-area">
         <header className="topbar">
+          <DownContainersAlert />
           <div className="topbar-user">
             <span>{user?.name}</span>
             <span className={`badge badge-${user?.role}`}>{user?.role}</span>

@@ -91,6 +91,69 @@ a {
   line-height: 1;
 }
 
+.alert-bell {
+  position: relative;
+}
+
+.alert-bell-button {
+  position: relative;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.alert-bell-button:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.alert-bell-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}
+
+.alert-bell-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: 320px;
+  max-height: 360px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.alert-bell-panel-title {
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.alert-bell-server {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.alert-bell-server:last-child {
+  border-bottom: none;
+}
+
+.alert-bell-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  padding: 4px 0 0;
+}
+
 .sidebar-link:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text);
