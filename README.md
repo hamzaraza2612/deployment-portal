@@ -251,10 +251,7 @@ repo isn't tied to one environment.
 1. Copy `.env.example` to `.env` and fill in real values — in particular
    `JWT_SECRET`, `ENCRYPTION_KEY`, and the seeded `ADMIN_EMAIL` /
    `ADMIN_PASSWORD`.
-2. `docker compose up -d --build` — Postgres data lives in `./data/postgres`
-   on the host (a bind mount, not a named Docker volume), so it survives a
-   `docker compose down -v` — only the app's own container/volumes get torn
-   down, never the portal's own database.
+2. `docker compose up -d --build`
 3. Open `http://localhost:8080`, log in with the seeded admin account.
 4. Add your environments under **Servers** (host, SSH user, auth method,
    `gitBaseDir`, `auditLogPath`, and the deployment base paths — e.g. what
