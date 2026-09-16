@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
 import type { ConfigFileBackupEntry, ConfigFileEntry, ServerRecord } from "../lib/types";
 import { formatDateTime } from "../components/Badge";
+import { SearchSelect } from "../components/SearchSelect";
 import { useConfirm } from "../hooks/useConfirm";
 
 function formatSize(bytes: number): string {
@@ -266,17 +267,12 @@ export function ConfigFiles() {
           {basePath && (
             <div className="form-field">
               <label>Application {loadingApps && "(loading…)"}</label>
-              <input
-                list="config-app-options"
+              <SearchSelect
+                options={apps}
                 value={appName}
-                onChange={(e) => setAppName(e.target.value)}
+                onChange={setAppName}
                 placeholder="Search or select an application…"
               />
-              <datalist id="config-app-options">
-                {apps.map((a) => (
-                  <option key={a} value={a} />
-                ))}
-              </datalist>
             </div>
           )}
         </div>

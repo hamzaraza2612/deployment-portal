@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import type { RepositoryRecord, ServerRecord } from "../lib/types";
 import { FileBrowser } from "../components/FileBrowser";
+import { SearchSelect } from "../components/SearchSelect";
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -215,17 +216,12 @@ export function Deploy() {
         <div className="card">
           <div className="form-field">
             <label>Branch ({branches.length} available — type to search)</label>
-            <input
-              list="branch-options"
+            <SearchSelect
+              options={branches}
               value={branch}
-              onChange={(e) => setBranch(e.target.value)}
+              onChange={setBranch}
               placeholder="Search or select a branch…"
             />
-            <datalist id="branch-options">
-              {branches.map((b) => (
-                <option key={b} value={b} />
-              ))}
-            </datalist>
             {branch && !branches.includes(branch) && (
               <div className="muted" style={{ fontSize: 12 }}>
                 No branch matches "{branch}" exactly.
@@ -281,17 +277,12 @@ export function Deploy() {
                 <div className="empty-state">Loading applications…</div>
               ) : (
                 <>
-                  <input
-                    list="app-options"
+                  <SearchSelect
+                    options={apps}
                     value={appName}
-                    onChange={(e) => setAppName(e.target.value)}
+                    onChange={setAppName}
                     placeholder="Search or select an application…"
                   />
-                  <datalist id="app-options">
-                    {apps.map((a) => (
-                      <option key={a} value={a} />
-                    ))}
-                  </datalist>
                   {appName && !apps.includes(appName) && (
                     <div className="muted" style={{ fontSize: 12 }}>
                       No application matches "{appName}" exactly.
