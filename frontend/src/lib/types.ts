@@ -170,6 +170,13 @@ export interface ConfigFileBackupEntry {
   modifiedAt: string;
 }
 
+export interface DownContainerServer {
+  serverId: string;
+  serverName: string;
+  environment: string;
+  containers: { name: string; state: string; status: string }[];
+}
+
 export interface DashboardSummary {
   serverCount: number;
   repositoryCount: number;

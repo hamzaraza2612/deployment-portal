@@ -66,6 +66,7 @@ export function Links() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [selectedEnv, setSelectedEnv] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const { confirm, modal } = useConfirm();
 
   function load() {
@@ -83,7 +84,18 @@ export function Links() {
 
   const knownEnvironments = Array.from(new Set(servers.map((s) => s.environment))).sort();
   const environments = useMemo(() => Array.from(new Set(links.map((l) => l.environment))).sort(), [links]);
-  const linksInSelected = links.filter((l) => l.environment === selectedEnv);
+  const linksInSelected = links
+    .filter((l) => l.environment === selectedEnv)
+    .filter((l) => {
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        l.name.toLowerCase().includes(q) ||
+        l.url.toLowerCase().includes(q) ||
+        (l.username ?? "").toLowerCase().includes(q) ||
+        (l.notes ?? "").toLowerCase().includes(q)
+      );
+    });
 
   function openCreate() {
     setForm({ ...EMPTY_FORM, environment: selectedEnv ?? "" });
@@ -254,9 +266,19 @@ export function Links() {
             ))}
           </div>
 
+          <div className="form-field" style={{ maxWidth: 320 }}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, URL, username, or notes…"
+            />
+          </div>
+
           <div className="card">
             {linksInSelected.length === 0 ? (
-              <div className="empty-state">No links in this environment.</div>
+              <div className="empty-state">
+                {search ? `No links match "${search}".` : "No links in this environment."}
+              </div>
             ) : (
               <table>
                 <thead>
