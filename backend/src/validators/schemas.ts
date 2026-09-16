@@ -124,3 +124,30 @@ export const updateAppLinkSchema = z.object({
   password: z.string().optional(),
   notes: z.string().optional(),
 });
+
+const configFileAppSchema = {
+  serverId: z.string().min(1),
+  basePath: z.string().min(1),
+  appName: z.string().min(1),
+};
+
+export const configFilesListSchema = z.object(configFileAppSchema);
+
+export const configFileContentSchema = z.object({
+  ...configFileAppSchema,
+  relativePath: z.string().min(1),
+});
+
+export const saveConfigFileSchema = z.object({
+  ...configFileAppSchema,
+  relativePath: z.string().min(1),
+  content: z.string(),
+});
+
+export const restoreConfigFileSchema = z.object({
+  ...configFileAppSchema,
+  relativePath: z.string().min(1),
+  backupName: z.string().min(1),
+});
+
+export const restartComposeSchema = z.object(configFileAppSchema);

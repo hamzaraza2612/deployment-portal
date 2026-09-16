@@ -11,6 +11,7 @@ import { dashboardRouter } from "./routes/dashboard.routes";
 import { containersRouter } from "./routes/containers.routes";
 import { linksRouter } from "./routes/links.routes";
 import { promotionsRouter } from "./routes/promotions.routes";
+import { configFilesRouter } from "./routes/configFiles.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
 const app = express();
@@ -35,6 +36,7 @@ app.use("/api/deployments", deploymentsRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/links", linksRouter);
 app.use("/api/promotions", promotionsRouter);
+app.use("/api/config-files", configFilesRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

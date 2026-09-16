@@ -167,6 +167,42 @@ hand on the target server.
 The existing manual **Deploy** wizard is unaffected — Promotions is a purely
 additive shortcut for the common "same build, next environment" case.
 
+## Config files
+
+`appsettings*.json`, `*securesettings*.json` and `config.json` are the exact
+files the deploy pipeline's rsync always **excludes** (see above) — they live
+only on the target server and survive every deploy untouched, which is
+exactly why they used to require SSHing in by hand to edit. The **Config
+Files** page (Admin/Operator only) lets you edit them from the portal
+instead:
+
+1. Pick an environment → server → deployment base path → application, the
+   same picker used by Deploy and Promotions.
+2. The portal lists every file under that app's `publish` folder matching
+   those same three patterns — nothing else is ever listed or editable, and
+   the match is recomputed fresh on every single read/write/restore call, so
+   a request can never reach outside that exact set.
+3. Opening a file shows its raw content in an editor; `.json` files are
+   validated (client-side live, and again server-side before saving) so a
+   malformed save is rejected with a parse error instead of breaking the
+   app.
+4. **Save** always backs up the current version first — into
+   `Backups/ConfigBackup_<timestamp>/<file>` on the same server, next to
+   deployment backups but named distinctly — before writing the new content
+   atomically (write to a temp file, then rename). If the backup step fails,
+   nothing is overwritten. After a successful save you're asked whether to
+   restart the app's container now (`docker compose restart`) so the change
+   takes effect, or leave it for later.
+5. Every file has a **Version history** — every backup ever taken of it,
+   newest first — with a one-click **Restore this version** button. A
+   restore backs up whatever's currently live before replacing it, so
+   restoring is itself undoable the same way.
+
+Nothing here is stored in the database — the server stays the single source
+of truth for these files, exactly like the rest of the portal; the portal is
+only ever a controlled window into it. Backups are never automatically
+pruned. Only files that already exist can be edited (not created) in this
+first version.
 ## Architecture
 
 - **backend/** — Node.js + Express + TypeScript, Prisma/PostgreSQL for

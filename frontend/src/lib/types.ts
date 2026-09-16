@@ -159,6 +159,17 @@ export interface PromotionRequestListItem {
   resultDeployment: { id: string; status: DeploymentStatus } | null;
 }
 
+export interface ConfigFileEntry {
+  relativePath: string;
+  size: number;
+  modifiedAt: string;
+}
+
+export interface ConfigFileBackupEntry {
+  backupName: string;
+  modifiedAt: string;
+}
+
 export interface DashboardSummary {
   serverCount: number;
   repositoryCount: number;
