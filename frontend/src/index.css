@@ -199,8 +199,10 @@ a {
 .main {
   flex: 1;
   min-width: 0;
+  width: 100%;
   padding: 28px 34px;
-  max-width: 1200px;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 .page-header {
