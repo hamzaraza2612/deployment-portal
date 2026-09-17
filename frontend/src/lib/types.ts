@@ -120,7 +120,7 @@ export interface DeploymentDetail extends Omit<DeploymentListItem, "server" | "r
   backupPath: string | null;
   log: string;
   errorMessage: string | null;
-  server: { id: string; name: string; host: string };
+  server: { id: string; name: string; host: string; environment: string };
   repository: { id: string; name: string; url: string };
   revertedFrom: { id: string; appName: string; branch: string; startedAt: string } | null;
   promotionRequestAsResult: {
