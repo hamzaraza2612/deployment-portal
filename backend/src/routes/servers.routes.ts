@@ -49,6 +49,16 @@ serversRouter.get(
 );
 
 serversRouter.get(
+  "/environments",
+  asyncHandler(async (_req, res) => {
+    // Every environment name that exists anywhere, regardless of which servers the caller
+    // can see — promoting to an environment only needs to know it exists, not browse it.
+    const servers = await prisma.server.findMany({ select: { environment: true }, distinct: ["environment"] });
+    res.json(servers.map((s) => s.environment).sort());
+  })
+);
+
+serversRouter.get(
   "/:id",
   asyncHandler(async (req, res) => {
     const server = await prisma.server.findUniqueOrThrow({

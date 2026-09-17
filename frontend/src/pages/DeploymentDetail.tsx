@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
-import type { DeploymentDetail as DeploymentDetailType, ServerRecord } from "../lib/types";
+import type { DeploymentDetail as DeploymentDetailType } from "../lib/types";
 import { Badge, formatDateTime, formatDuration } from "../components/Badge";
 import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../hooks/useConfirm";
@@ -17,7 +17,7 @@ export function DeploymentDetail() {
   const [error, setError] = useState<string | null>(null);
   const [reverting, setReverting] = useState(false);
 
-  const [servers, setServers] = useState<ServerRecord[]>([]);
+  const [allEnvironments, setAllEnvironments] = useState<string[]>([]);
   const [targetEnv, setTargetEnv] = useState("");
   const [sending, setSending] = useState(false);
   const [sendMessage, setSendMessage] = useState<string | null>(null);
@@ -48,7 +48,9 @@ export function DeploymentDetail() {
   }, [id]);
 
   useEffect(() => {
-    api.get<ServerRecord[]>("/servers").then(setServers).catch(() => undefined);
+    // Unscoped by design: any environment name, whether or not this user can browse its
+    // servers, is a valid promotion target — only executing the promotion later needs access.
+    api.get<string[]>("/servers/environments").then(setAllEnvironments).catch(() => undefined);
   }, []);
 
   async function handleRevert() {
@@ -91,10 +93,8 @@ export function DeploymentDetail() {
   if (error) return <div className="alert alert-error">{error}</div>;
   if (!deployment) return <div className="empty-state">Loading…</div>;
 
-  const sourceEnvironment = servers.find((s) => s.id === deployment.server.id)?.environment;
-  const sendableEnvironments = Array.from(new Set(servers.map((s) => s.environment))).filter(
-    (env) => env !== sourceEnvironment
-  );
+  const sourceEnvironment = deployment.server.environment;
+  const sendableEnvironments = allEnvironments.filter((env) => env !== sourceEnvironment);
 
   return (
     <div>
