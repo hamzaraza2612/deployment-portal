@@ -96,6 +96,24 @@ export interface RepositoryRecord {
   updatedAt: string;
 }
 
+export interface GitCredentialRecord {
+  id: string;
+  host: string;
+  username: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  summary: string;
+  createdAt: string;
+  userId: string | null;
+  userName: string;
+  userEmail: string;
+}
+
 export interface DeploymentListItem {
   id: string;
   branch: string;

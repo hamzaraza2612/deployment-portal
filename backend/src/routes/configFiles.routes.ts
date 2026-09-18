@@ -2,6 +2,7 @@ import path from "path";
 import { Router } from "express";
 import type { Server } from "@prisma/client";
 import { prisma } from "../lib/prisma";
+import { recordAudit } from "../lib/audit";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import type { AuthTokenPayload } from "../middleware/auth";
@@ -79,6 +80,11 @@ configFilesRouter.put(
     const server = await loadAccessibleServer(req.user!, body.serverId);
     const appPath = resolveAppPath(server, body.basePath, body.appName);
     const result = await writeConfigFile(server, appPath, body.relativePath, body.content);
+    recordAudit(
+      req.user!,
+      "config.save",
+      `Saved ${body.relativePath} for ${body.appName} on ${server.name} (backup: ${result.backupName})`
+    );
     res.json(result);
   })
 );
@@ -106,6 +112,11 @@ configFilesRouter.post(
     const server = await loadAccessibleServer(req.user!, body.serverId);
     const appPath = resolveAppPath(server, body.basePath, body.appName);
     await restoreConfigFileBackup(server, appPath, body.relativePath, body.backupName);
+    recordAudit(
+      req.user!,
+      "config.restore",
+      `Restored ${body.relativePath} for ${body.appName} on ${server.name} from ${body.backupName}`
+    );
     res.json({ ok: true });
   })
 );

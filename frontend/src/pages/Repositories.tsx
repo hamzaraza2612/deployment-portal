@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import type { RepositoryRecord } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
@@ -49,7 +50,8 @@ export function Repositories() {
     setError(null);
     setSaving(true);
     try {
-      const payload: Record<string, string> = { name: form.name, url: form.url, username: form.username };
+      const payload: Record<string, string> = { name: form.name, url: form.url };
+      if (form.username) payload.username = form.username;
       if (form.secret) payload.secret = form.secret;
 
       if (form.id) {
@@ -117,15 +119,14 @@ export function Repositories() {
                 />
               </div>
               <div className="form-field">
-                <label>Git username</label>
-                <input
-                  value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
-                  required
-                />
+                <label>Git username {!form.id && "(leave blank to use a saved credential for this host)"}</label>
+                <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
               </div>
               <div className="form-field">
-                <label>Git password / token {form.id && "(leave blank to keep current)"}</label>
+                <label>
+                  Git password / token{" "}
+                  {form.id ? "(leave blank to keep current)" : "(leave blank to use a saved credential)"}
+                </label>
                 <input
                   type="password"
                   value={form.secret}
@@ -133,6 +134,12 @@ export function Repositories() {
                 />
               </div>
             </div>
+            {!form.id && (
+              <p className="muted" style={{ fontSize: 12.5, marginTop: -6 }}>
+                Manage saved credentials under <Link to="/git-credentials">Git Credentials</Link> — add one per
+                host once, then new repos on that host don't need a username/token typed in here.
+              </p>
+            )}
             <div className="row-actions">
               <button type="button" className="btn" onClick={() => setFormOpen(false)}>
                 Cancel

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { encrypt } from "../lib/crypto";
 import { testConnection } from "../lib/ssh";
+import { recordAudit } from "../lib/audit";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { canAccessEnvironment, serverEnvironmentFilter } from "../lib/access";
@@ -92,6 +93,7 @@ serversRouter.post(
       },
       select: LIST_SELECT,
     });
+    recordAudit(req.user!, "server.create", `Added server ${server.name} (${server.environment})`);
     res.status(201).json(server);
   })
 );
@@ -122,6 +124,7 @@ serversRouter.patch(
       data,
       select: LIST_SELECT,
     });
+    recordAudit(req.user!, "server.update", `Updated server ${server.name}`);
     res.json(server);
   })
 );
@@ -130,7 +133,20 @@ serversRouter.delete(
   "/:id",
   requireRole("ADMIN"),
   asyncHandler(async (req, res) => {
+    const server = await prisma.server.findUniqueOrThrow({ where: { id: req.params.id } });
+    const [deploymentCount, promotionTargetCount] = await Promise.all([
+      prisma.deployment.count({ where: { serverId: server.id } }),
+      prisma.promotionRequest.count({ where: { targetServerId: server.id } }),
+    ]);
+    if (deploymentCount > 0 || promotionTargetCount > 0) {
+      throw new HttpError(
+        400,
+        `Cannot delete ${server.name} — it has ${deploymentCount} deployment(s) and ${promotionTargetCount} ` +
+          `promotion record(s) in its history, which are kept for audit purposes and can't be removed with it.`
+      );
+    }
     await prisma.server.delete({ where: { id: req.params.id } });
+    recordAudit(req.user!, "server.delete", `Deleted server ${server.name} (${server.environment})`);
     res.status(204).end();
   })
 );

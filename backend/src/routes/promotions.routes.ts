@@ -2,6 +2,7 @@ import path from "path";
 import { Router } from "express";
 import type { PromotionStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
+import { recordAudit } from "../lib/audit";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { accessibleEnvironments, canAccessEnvironment } from "../lib/access";
@@ -149,6 +150,11 @@ promotionsRouter.post(
     // Fire and forget: the client polls GET /deployments/:id for live status/log, same as a normal deploy.
     void runDeployment({ deploymentId: deployment.id });
 
+    recordAudit(
+      req.user!,
+      "promotion.deploy",
+      `Deployed promotion of ${appName} to ${targetServer.name} (${request.targetEnvironment})`
+    );
     res.status(201).json(deployment);
   })
 );
@@ -157,7 +163,10 @@ promotionsRouter.post(
   "/:id/cancel",
   requireRole(...CAN_DEPLOY),
   asyncHandler(async (req, res) => {
-    const request = await prisma.promotionRequest.findUniqueOrThrow({ where: { id: req.params.id } });
+    const request = await prisma.promotionRequest.findUniqueOrThrow({
+      where: { id: req.params.id },
+      include: { sourceDeployment: { select: { appName: true } } },
+    });
     if (!canAccessEnvironment(req.user!, request.targetEnvironment)) {
       throw new HttpError(404, "Promotion request not found");
     }
@@ -168,6 +177,11 @@ promotionsRouter.post(
       where: { id: request.id },
       data: { status: "CANCELLED" },
     });
+    recordAudit(
+      req.user!,
+      "promotion.cancel",
+      `Cancelled promotion of ${request.sourceDeployment.appName} to ${request.targetEnvironment}`
+    );
     res.json(updated);
   })
 );

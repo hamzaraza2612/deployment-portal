@@ -231,7 +231,8 @@ lists which server and which container, grouped by server, with a link to
 ## Roles
 
 - **Admin** — manage servers, repositories, and users; can also deploy; sees
-  every environment.
+  every environment; the only role that can see **Docker Stats**, **Server
+  Monitoring**, **Git Credentials**, and **Audit Logs**.
 - **Operator** — can trigger deployments and test server connections, but
   cannot manage servers/repositories/users.
 - **Viewer** — read-only: dashboard, server/repository lists, deployment
@@ -245,6 +246,30 @@ user with no environment assigned sees nothing until an Admin grants
 access. Repositories (git credentials) aren't environment-scoped — every
 authenticated user who can deploy sees the full repository list, since a
 repo isn't tied to one environment.
+
+## Git credentials
+
+Adding a repository normally asks for a git username/token for its host.
+Under **Git Credentials** (Admin-only) you can instead save one
+username/token per git host once — the next time a repository is added on
+that host, leave the username/token fields blank and the portal resolves
+them from the saved credential automatically. The repository still gets
+its own encrypted copy of the credential at creation time, so deleting or
+rotating a saved credential later never breaks a repository that already
+used it; it only affects repositories added afterwards.
+
+## Audit logs
+
+Every mutating action in the portal — creating/editing/deleting servers,
+repositories, users, links, and git credentials; every deployment,
+revert, and promotion; container start/stop/restart/recreate; and every
+config file save/restore — is recorded to an **Audit Logs** page
+(Admin-only), showing who did it (name + email, snapshotted at the time
+of the action so the record survives that user later being deleted),
+when, and a human-readable summary of what happened. Config file edits in
+particular record the server, app, file path, and which backup was
+created or restored, directly answering "who edited what, where, and
+when." The list is searchable across the user, action type, and summary.
 
 ## Running it
 
@@ -286,3 +311,7 @@ npm run dev                 # http://localhost:5173, proxies /api to :4000
 - Only Admins and Operators can trigger deployments; the confirmation step
   in the wizard shows the exact source/target paths before anything runs.
 - Set `COOKIE_SECURE=true` once the portal is served over HTTPS.
+- Deleting a server or user that still has deployment/promotion history
+  attached is blocked with a clear error instead of failing with a raw
+  database foreign-key error — deployment and audit history are never
+  silently destroyed as a side effect of an unrelated delete.

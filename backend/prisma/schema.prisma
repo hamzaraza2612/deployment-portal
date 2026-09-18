@@ -47,6 +47,7 @@ model User {
   createdAt          DateTime     @default(now())
   deployments        Deployment[]
   promotionRequests  PromotionRequest[]
+  auditLogs          AuditLog[]
 }
 
 model Server {
@@ -80,6 +81,39 @@ model Repository {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   deployments Deployment[]
+}
+
+// A saved git host credential (e.g. one entry for "gitlab.techbey.pk") so adding a new
+// Repository on an already-known host doesn't require re-entering the username/token —
+// its stored username/secret are copied onto the new Repository row at creation time.
+// Repository keeps its own copy rather than a live reference so nothing here changes if
+// this credential is later edited or removed; re-save affected repos to rotate them.
+model GitCredential {
+  id        String   @id @default(cuid())
+  host      String   @unique
+  username  String
+  // AES-256-GCM encrypted token/password
+  secret    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// One row per sensitive action across the portal (create/update/delete, deploys, config
+// file edits, container actions, ...) so an Admin can see who did what and when. userName/
+// userEmail are a snapshot taken at write time (from the JWT, no extra lookup) so the log
+// stays meaningful even after the acting user's account is later deleted (userId -> null).
+model AuditLog {
+  id        String   @id @default(cuid())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+  userName  String
+  userEmail String
+  action    String
+  summary   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
 }
 
 model Deployment {
