@@ -1,6 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
+import { recordAudit } from "../lib/audit";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { createUserSchema, updateUserSchema } from "../validators/schemas";
@@ -48,6 +49,7 @@ usersRouter.post(
       },
       select: SAFE_SELECT,
     });
+    recordAudit(req.user!, "user.create", `Added user ${user.name} (${user.email}, ${user.role})`);
     res.status(201).json(user);
   })
 );
@@ -67,6 +69,7 @@ usersRouter.patch(
       data,
       select: SAFE_SELECT,
     });
+    recordAudit(req.user!, "user.update", `Updated user ${user.name} (${user.email})`);
     res.json(user);
   })
 );
@@ -77,7 +80,21 @@ usersRouter.delete(
     if (req.params.id === req.user?.userId) {
       throw new HttpError(400, "You cannot delete your own account");
     }
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: req.params.id } });
+    const [deploymentCount, promotionCount] = await Promise.all([
+      prisma.deployment.count({ where: { triggeredById: user.id } }),
+      prisma.promotionRequest.count({ where: { requestedById: user.id } }),
+    ]);
+    if (deploymentCount > 0 || promotionCount > 0) {
+      throw new HttpError(
+        400,
+        `Cannot delete ${user.name} — they triggered ${deploymentCount} deployment(s) and ` +
+          `${promotionCount} promotion(s), kept for audit purposes. Change their role instead if they should ` +
+          `no longer have access.`
+      );
+    }
     await prisma.user.delete({ where: { id: req.params.id } });
+    recordAudit(req.user!, "user.delete", `Deleted user ${user.name} (${user.email})`);
     res.status(204).end();
   })
 );

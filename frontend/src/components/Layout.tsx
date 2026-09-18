@@ -13,13 +13,15 @@ const NAV_ITEMS = [
   { to: "/history", label: "History", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
   { to: "/promotions", label: "Promotions", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
   { to: "/environments", label: "Environments", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
-  { to: "/docker-stats", label: "Docker Stats", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
+  { to: "/docker-stats", label: "Docker Stats", roles: ["ADMIN"] },
   { to: "/server-monitoring", label: "Server Monitoring", roles: ["ADMIN"] },
   { to: "/links", label: "Links", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
   { to: "/config-files", label: "Config Files", roles: ["ADMIN", "OPERATOR"] },
   { to: "/servers", label: "Servers", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
   { to: "/repositories", label: "Repositories", roles: ["ADMIN", "OPERATOR", "VIEWER"] },
+  { to: "/git-credentials", label: "Git Credentials", roles: ["ADMIN"] },
   { to: "/users", label: "Users", roles: ["ADMIN"] },
+  { to: "/audit-logs", label: "Audit Logs", roles: ["ADMIN"] },
 ];
 
 export function Layout() {

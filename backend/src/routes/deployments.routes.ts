@@ -2,6 +2,7 @@ import path from "path";
 import { Router } from "express";
 import type { DeploymentStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
+import { recordAudit } from "../lib/audit";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import type { AuthTokenPayload } from "../middleware/auth";
@@ -207,6 +208,11 @@ deploymentsRouter.post(
     // Fire and forget: the client polls GET /:id for live status/log.
     void runDeployment({ deploymentId: deployment.id });
 
+    recordAudit(
+      req.user!,
+      "deployment.create",
+      `Deployed ${body.appName} (${body.branch}) on ${server.name}`
+    );
     res.status(201).json(deployment);
   })
 );
@@ -251,6 +257,11 @@ deploymentsRouter.post(
     // Fire and forget: the client polls GET /:id for live status/log, same as a normal deploy.
     void runRevert({ deploymentId: revert.id });
 
+    recordAudit(
+      req.user!,
+      "deployment.revert",
+      `Reverted ${target.appName} on ${target.server.name} to backup "${target.backupName ?? target.id}"`
+    );
     res.status(201).json(revert);
   })
 );
@@ -300,6 +311,11 @@ deploymentsRouter.post(
       },
     });
 
+    recordAudit(
+      req.user!,
+      "promotion.create",
+      `Sent ${source.appName} from ${source.server.environment} to ${body.targetEnvironment}`
+    );
     res.status(201).json(request);
   })
 );

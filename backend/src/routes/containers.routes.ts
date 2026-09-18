@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
+import { recordAudit } from "../lib/audit";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import type { AuthTokenPayload } from "../middleware/auth";
@@ -35,6 +36,7 @@ containersRouter.get(
 
 containersRouter.get(
   "/:serverId/containers/stats",
+  requireRole("ADMIN"),
   asyncHandler(async (req, res) => {
     const server = await loadAccessibleServer(req.user!, req.params.serverId);
     const stats = await getContainerStats(server);
@@ -62,11 +64,13 @@ containersRouter.post(
 
     if (action === "recreate") {
       const output = await recreateContainer(server, containerId);
+      recordAudit(req.user!, "container.recreate", `Recreated container ${containerId} on ${server.name}`);
       res.json({ ok: true, output });
       return;
     }
     if (action === "start" || action === "stop" || action === "restart") {
       const output = await runContainerAction(server, containerId, action);
+      recordAudit(req.user!, `container.${action}`, `${action} container ${containerId} on ${server.name}`);
       res.json({ ok: true, output });
       return;
     }

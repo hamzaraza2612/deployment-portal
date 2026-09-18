@@ -13,6 +13,8 @@ import { linksRouter } from "./routes/links.routes";
 import { promotionsRouter } from "./routes/promotions.routes";
 import { configFilesRouter } from "./routes/configFiles.routes";
 import { alertsRouter } from "./routes/alerts.routes";
+import { gitCredentialsRouter } from "./routes/gitCredentials.routes";
+import { auditRouter } from "./routes/audit.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
 const app = express();
@@ -39,6 +41,8 @@ app.use("/api/links", linksRouter);
 app.use("/api/promotions", promotionsRouter);
 app.use("/api/config-files", configFilesRouter);
 app.use("/api/alerts", alertsRouter);
+app.use("/api/git-credentials", gitCredentialsRouter);
+app.use("/api/audit-logs", auditRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

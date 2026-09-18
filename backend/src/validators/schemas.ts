@@ -56,8 +56,10 @@ export const updateServerSchema = z.object({
 export const createRepositorySchema = z.object({
   name: z.string().min(1),
   url: z.string().min(1),
-  username: z.string().min(1),
-  secret: z.string().min(1),
+  // Optional: when omitted, the backend looks up a saved GitCredential matching the
+  // URL's host so a repo on an already-known host can be added without retyping them.
+  username: z.string().min(1).optional(),
+  secret: z.string().min(1).optional(),
 });
 
 export const updateRepositorySchema = z.object({
@@ -151,3 +153,14 @@ export const restoreConfigFileSchema = z.object({
 });
 
 export const restartComposeSchema = z.object(configFileAppSchema);
+
+export const createGitCredentialSchema = z.object({
+  host: z.string().min(1),
+  username: z.string().min(1),
+  secret: z.string().min(1),
+});
+
+export const updateGitCredentialSchema = z.object({
+  username: z.string().min(1).optional(),
+  secret: z.string().min(1).optional(),
+});

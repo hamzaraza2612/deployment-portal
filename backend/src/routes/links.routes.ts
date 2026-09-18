@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { decrypt, encrypt } from "../lib/crypto";
+import { recordAudit } from "../lib/audit";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { canAccessEnvironment, environmentFilter } from "../lib/access";
@@ -40,6 +41,7 @@ linksRouter.post(
         notes: body.notes,
       },
     });
+    recordAudit(req.user!, "link.create", `Added link ${link.name} (${link.environment})`);
     res.status(201).json(toClientShape(link));
   })
 );
@@ -62,6 +64,7 @@ linksRouter.patch(
     Object.keys(data).forEach((key) => data[key] === undefined && delete data[key]);
 
     const link = await prisma.appLink.update({ where: { id: req.params.id }, data });
+    recordAudit(req.user!, "link.update", `Updated link ${link.name} (${link.environment})`);
     res.json(toClientShape(link));
   })
 );
@@ -70,7 +73,8 @@ linksRouter.delete(
   "/:id",
   requireRole("ADMIN"),
   asyncHandler(async (req, res) => {
-    await prisma.appLink.delete({ where: { id: req.params.id } });
+    const link = await prisma.appLink.delete({ where: { id: req.params.id } });
+    recordAudit(req.user!, "link.delete", `Deleted link ${link.name} (${link.environment})`);
     res.status(204).end();
   })
 );

@@ -16,6 +16,8 @@ import { DockerStats } from "./pages/DockerStats";
 import { ServerMonitoring } from "./pages/ServerMonitoring";
 import { Promotions } from "./pages/Promotions";
 import { ConfigFiles } from "./pages/ConfigFiles";
+import { GitCredentials } from "./pages/GitCredentials";
+import { AuditLogs } from "./pages/AuditLogs";
 import type { Role } from "./lib/types";
 
 function FullScreenLoader() {
@@ -78,7 +80,14 @@ export default function App() {
           }
         />
         <Route path="/environments" element={<Environments />} />
-        <Route path="/docker-stats" element={<DockerStats />} />
+        <Route
+          path="/docker-stats"
+          element={
+            <RequireAuth roles={["ADMIN"]}>
+              <DockerStats />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/server-monitoring"
           element={
@@ -91,10 +100,26 @@ export default function App() {
         <Route path="/servers" element={<Servers />} />
         <Route path="/repositories" element={<Repositories />} />
         <Route
+          path="/git-credentials"
+          element={
+            <RequireAuth roles={["ADMIN"]}>
+              <GitCredentials />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/users"
           element={
             <RequireAuth roles={["ADMIN"]}>
               <Users />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/audit-logs"
+          element={
+            <RequireAuth roles={["ADMIN"]}>
+              <AuditLogs />
             </RequireAuth>
           }
         />

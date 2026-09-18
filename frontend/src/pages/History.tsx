@@ -16,6 +16,7 @@ export function History() {
   const [servers, setServers] = useState<ServerRecord[]>([]);
   const [status, setStatus] = useState("");
   const [serverId, setServerId] = useState("");
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [revertingId, setRevertingId] = useState<string | null>(null);
 
@@ -35,6 +36,16 @@ export function History() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [status, serverId]);
+
+  const visibleDeployments = deployments.filter((d) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      d.appName.toLowerCase().includes(q) ||
+      d.branch.toLowerCase().includes(q) ||
+      d.server.name.toLowerCase().includes(q)
+    );
+  });
 
   async function handleRevert(d: DeploymentListItem) {
     const backupLabel = d.backupName ?? "this deployment's backup";
@@ -89,14 +100,24 @@ export function History() {
               ))}
             </select>
           </div>
+          <div className="form-field">
+            <label>Search</label>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="App, branch, or server name…"
+            />
+          </div>
         </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="card">
-        {deployments.length === 0 ? (
-          <div className="empty-state">No deployments match these filters.</div>
+        {visibleDeployments.length === 0 ? (
+          <div className="empty-state">
+            {search ? `No deployments match "${search}".` : "No deployments match these filters."}
+          </div>
         ) : (
           <table>
             <thead>
@@ -112,7 +133,7 @@ export function History() {
               </tr>
             </thead>
             <tbody>
-              {deployments.map((d) => (
+              {visibleDeployments.map((d) => (
                 <tr key={d.id}>
                   <td>
                     <Link to={`/history/${d.id}`}>{d.appName}</Link>
