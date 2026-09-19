@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { encrypt } from "../lib/crypto";
 import { recordAudit } from "../lib/audit";
+import { fieldChangeDetails } from "../lib/diff";
 import { asyncHandler } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { createGitCredentialSchema, updateGitCredentialSchema } from "../validators/schemas";
@@ -46,6 +47,10 @@ gitCredentialsRouter.patch(
   "/:id",
   asyncHandler(async (req, res) => {
     const body = updateGitCredentialSchema.parse(req.body);
+    const existing = await prisma.gitCredential.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: LIST_SELECT,
+    });
     const data: Record<string, unknown> = { username: body.username };
     if (body.secret) data.secret = encrypt(body.secret);
     Object.keys(data).forEach((key) => data[key] === undefined && delete data[key]);
@@ -55,7 +60,11 @@ gitCredentialsRouter.patch(
       data,
       select: LIST_SELECT,
     });
-    recordAudit(req.user!, "git-credential.update", `Updated git credential for ${credential.host}`);
+    const changes = fieldChangeDetails(existing, data, ["username"]);
+    const details = body.secret
+      ? { kind: "fields", changes: { ...(changes?.changes as object), secret: { from: "(hidden)", to: "updated" } } }
+      : changes;
+    recordAudit(req.user!, "git-credential.update", `Updated git credential for ${credential.host}`, details);
     res.json(credential);
   })
 );

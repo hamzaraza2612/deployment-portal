@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { decrypt, encrypt } from "../lib/crypto";
 import { recordAudit } from "../lib/audit";
+import { fieldChangeDetails } from "../lib/diff";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { canAccessEnvironment, environmentFilter } from "../lib/access";
@@ -51,6 +52,10 @@ linksRouter.patch(
   requireRole("ADMIN"),
   asyncHandler(async (req, res) => {
     const body = updateAppLinkSchema.parse(req.body);
+    const existing = await prisma.appLink.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { environment: true, name: true, url: true, username: true, notes: true },
+    });
     const data: Record<string, unknown> = {
       environment: body.environment,
       name: body.name,
@@ -64,7 +69,18 @@ linksRouter.patch(
     Object.keys(data).forEach((key) => data[key] === undefined && delete data[key]);
 
     const link = await prisma.appLink.update({ where: { id: req.params.id }, data });
-    recordAudit(req.user!, "link.update", `Updated link ${link.name} (${link.environment})`);
+    const changes = fieldChangeDetails(existing, data, ["environment", "name", "url", "username", "notes"]);
+    const details =
+      data.password !== undefined
+        ? {
+            kind: "fields",
+            changes: {
+              ...(changes?.changes as object),
+              password: { from: "(hidden)", to: data.password ? "updated" : "cleared" },
+            },
+          }
+        : changes;
+    recordAudit(req.user!, "link.update", `Updated link ${link.name} (${link.environment})`, details);
     res.json(toClientShape(link));
   })
 );

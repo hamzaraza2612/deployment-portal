@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma";
 import { encrypt } from "../lib/crypto";
 import { testConnection } from "../lib/ssh";
 import { recordAudit } from "../lib/audit";
+import { fieldChangeDetails } from "../lib/diff";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { canAccessEnvironment, serverEnvironmentFilter } from "../lib/access";
@@ -103,6 +104,7 @@ serversRouter.patch(
   requireRole("ADMIN"),
   asyncHandler(async (req, res) => {
     const body = updateServerSchema.parse(req.body);
+    const existing = await prisma.server.findUniqueOrThrow({ where: { id: req.params.id }, select: LIST_SELECT });
     const data: Record<string, unknown> = {
       name: body.name,
       environment: body.environment,
@@ -124,7 +126,20 @@ serversRouter.patch(
       data,
       select: LIST_SELECT,
     });
-    recordAudit(req.user!, "server.update", `Updated server ${server.name}`);
+    const changes = fieldChangeDetails(existing, data, [
+      "name",
+      "environment",
+      "host",
+      "port",
+      "sshUser",
+      "gitBaseDir",
+      "auditLogPath",
+      "basePaths",
+    ]);
+    const details = body.auth
+      ? { kind: "fields", changes: { ...(changes?.changes as object), credentials: { from: "(hidden)", to: "updated" } } }
+      : changes;
+    recordAudit(req.user!, "server.update", `Updated server ${server.name}`, details);
     res.json(server);
   })
 );

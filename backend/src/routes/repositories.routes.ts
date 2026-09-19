@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { decrypt, encrypt } from "../lib/crypto";
 import { recordAudit } from "../lib/audit";
+import { fieldChangeDetails } from "../lib/diff";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { createRepositorySchema, updateRepositorySchema } from "../validators/schemas";
@@ -80,6 +81,10 @@ repositoriesRouter.patch(
   requireRole("ADMIN"),
   asyncHandler(async (req, res) => {
     const body = updateRepositorySchema.parse(req.body);
+    const existing = await prisma.repository.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: LIST_SELECT,
+    });
     const data: Record<string, unknown> = {
       name: body.name,
       url: body.url,
@@ -93,7 +98,11 @@ repositoriesRouter.patch(
       data,
       select: LIST_SELECT,
     });
-    recordAudit(req.user!, "repository.update", `Updated repository ${repository.name}`);
+    const changes = fieldChangeDetails(existing, data, ["name", "url", "username"]);
+    const details = body.secret
+      ? { kind: "fields", changes: { ...(changes?.changes as object), credentials: { from: "(hidden)", to: "updated" } } }
+      : changes;
+    recordAudit(req.user!, "repository.update", `Updated repository ${repository.name}`, details);
     res.json(repository);
   })
 );

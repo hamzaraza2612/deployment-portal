@@ -104,6 +104,21 @@ export interface GitCredentialRecord {
   updatedAt: string;
 }
 
+export interface AuditFieldChange {
+  from: unknown;
+  to: unknown;
+}
+
+export interface AuditLineDiffEntry {
+  type: "context" | "add" | "remove";
+  line: string;
+}
+
+export type AuditLogDetails =
+  | { kind: "fields"; changes: Record<string, AuditFieldChange> }
+  | { kind: "diff"; entries: AuditLineDiffEntry[] }
+  | { kind: "diff-summary"; sizeBefore: number; sizeAfter: number };
+
 export interface AuditLogEntry {
   id: string;
   action: string;
@@ -112,6 +127,7 @@ export interface AuditLogEntry {
   userId: string | null;
   userName: string;
   userEmail: string;
+  details: AuditLogDetails | null;
 }
 
 export interface DeploymentListItem {

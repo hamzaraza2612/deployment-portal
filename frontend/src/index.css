@@ -552,6 +552,43 @@ textarea:focus {
   color: var(--info);
 }
 
+.diff-line {
+  display: block;
+  padding: 1px 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diff-add {
+  background: rgba(46, 160, 67, 0.15);
+  color: #7ee2a8;
+}
+
+.diff-remove {
+  background: rgba(248, 81, 73, 0.15);
+  color: #ff9492;
+}
+
+.diff-context {
+  color: #8b96ab;
+}
+
+.field-change-table {
+  width: 100%;
+  font-size: 13px;
+}
+
+.field-change-table td {
+  padding: 5px 10px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.field-change-table code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+
 .summary-list {
   display: grid;
   grid-template-columns: 160px 1fr;
