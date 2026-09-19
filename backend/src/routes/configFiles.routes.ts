@@ -3,6 +3,7 @@ import { Router } from "express";
 import type { Server } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { recordAudit } from "../lib/audit";
+import { textDiffDetails } from "../lib/diff";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import type { AuthTokenPayload } from "../middleware/auth";
@@ -83,9 +84,10 @@ configFilesRouter.put(
     recordAudit(
       req.user!,
       "config.save",
-      `Saved ${body.relativePath} for ${body.appName} on ${server.name} (backup: ${result.backupName})`
+      `Saved ${body.relativePath} for ${body.appName} on ${server.name} (backup: ${result.backupName})`,
+      textDiffDetails(result.before, body.content)
     );
-    res.json(result);
+    res.json({ backupName: result.backupName });
   })
 );
 
@@ -111,11 +113,12 @@ configFilesRouter.post(
     const body = restoreConfigFileSchema.parse(req.body);
     const server = await loadAccessibleServer(req.user!, body.serverId);
     const appPath = resolveAppPath(server, body.basePath, body.appName);
-    await restoreConfigFileBackup(server, appPath, body.relativePath, body.backupName);
+    const { before, after } = await restoreConfigFileBackup(server, appPath, body.relativePath, body.backupName);
     recordAudit(
       req.user!,
       "config.restore",
-      `Restored ${body.relativePath} for ${body.appName} on ${server.name} from ${body.backupName}`
+      `Restored ${body.relativePath} for ${body.appName} on ${server.name} from ${body.backupName}`,
+      textDiffDetails(before, after)
     );
     res.json({ ok: true });
   })

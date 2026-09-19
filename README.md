@@ -266,10 +266,16 @@ revert, and promotion; container start/stop/restart/recreate; and every
 config file save/restore — is recorded to an **Audit Logs** page
 (Admin-only), showing who did it (name + email, snapshotted at the time
 of the action so the record survives that user later being deleted),
-when, and a human-readable summary of what happened. Config file edits in
-particular record the server, app, file path, and which backup was
-created or restored, directly answering "who edited what, where, and
-when." The list is searchable across the user, action type, and summary.
+when, and a human-readable summary of what happened. The list is
+searchable across the user, action type, and summary.
+
+Edits carry a **"View detail"** button with the actual before/after:
+editing a server, user, repository, git credential, or link shows a
+field-by-field table of what changed (old value → new value; passwords
+and secrets are only ever flagged as changed, never shown), and saving or
+restoring a config file shows a full line-by-line diff of the file
+content (red = removed, green = added) — directly answering "who edited
+what, where, when, and exactly what changed."
 
 ## Running it
 

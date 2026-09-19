@@ -2,6 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 import { recordAudit } from "../lib/audit";
+import { fieldChangeDetails } from "../lib/diff";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { createUserSchema, updateUserSchema } from "../validators/schemas";
@@ -58,6 +59,7 @@ usersRouter.patch(
   "/:id",
   asyncHandler(async (req, res) => {
     const body = updateUserSchema.parse(req.body);
+    const existing = await prisma.user.findUniqueOrThrow({ where: { id: req.params.id }, select: SAFE_SELECT });
     const data: Record<string, unknown> = {};
     if (body.name) data.name = body.name;
     if (body.role) data.role = body.role;
@@ -69,7 +71,11 @@ usersRouter.patch(
       data,
       select: SAFE_SELECT,
     });
-    recordAudit(req.user!, "user.update", `Updated user ${user.name} (${user.email})`);
+    const changes = fieldChangeDetails(existing, data, ["name", "role", "allowedEnvironments"]);
+    const details = body.password
+      ? { kind: "fields", changes: { ...(changes?.changes as object), password: { from: "(hidden)", to: "changed" } } }
+      : changes;
+    recordAudit(req.user!, "user.update", `Updated user ${user.name} (${user.email})`, details);
     res.json(user);
   })
 );

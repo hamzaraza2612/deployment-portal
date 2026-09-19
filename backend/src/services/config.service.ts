@@ -86,7 +86,7 @@ export async function writeConfigFile(
   appPath: string,
   relativePath: string,
   content: string
-): Promise<{ backupName: string }> {
+): Promise<{ backupName: string; before: string }> {
   const filePath = await assertConfigFileExists(server, appPath, relativePath);
   const normalizedRel = path.posix.normalize(relativePath);
 
@@ -97,6 +97,9 @@ export async function writeConfigFile(
       throw new HttpError(400, `That's not valid JSON: ${(err as Error).message}`);
     }
   }
+
+  const info = toConnectionInfo(server);
+  const before = await readConfigFile(server, appPath, relativePath);
 
   const backupName = `ConfigBackup_${formatBackupTimestamp(new Date())}`;
   const backupFile = path.posix.join(appPath, "Backups", backupName, normalizedRel);
@@ -114,12 +117,11 @@ printf '%s' ${shQuote(encoded)} | base64 -d > "$TARGET.tmp"
 mv "$TARGET.tmp" "$TARGET"
 `.trim();
 
-  const info = toConnectionInfo(server);
   const result = await execScript(info, script);
   if (result.code !== 0) {
     throw new HttpError(502, `Failed to save file: ${result.stderr || result.stdout}`);
   }
-  return { backupName };
+  return { backupName, before };
 }
 
 export async function listConfigFileBackups(
@@ -157,7 +159,7 @@ export async function restoreConfigFileBackup(
   appPath: string,
   relativePath: string,
   backupName: string
-): Promise<void> {
+): Promise<{ before: string; after: string }> {
   if (!/^ConfigBackup_[A-Za-z0-9_-]+$/.test(backupName)) {
     throw new HttpError(400, "Invalid backup name");
   }
@@ -170,6 +172,13 @@ export async function restoreConfigFileBackup(
   if (!checkResult.stdout.includes("yes")) {
     throw new HttpError(404, "That backup version was not found");
   }
+
+  const before = await readConfigFile(server, appPath, relativePath);
+  const afterResult = await execCommandOnServer(info, `base64 ${shQuote(backupSource)}`);
+  if (afterResult.code !== 0) {
+    throw new HttpError(502, `Unable to read backup file: ${afterResult.stderr || afterResult.stdout}`);
+  }
+  const after = Buffer.from(afterResult.stdout.replace(/\s+/g, ""), "base64").toString("utf8");
 
   // Restoring is itself reversible: whatever is live right now gets backed up before being replaced.
   const safetyBackupName = `ConfigBackup_${formatBackupTimestamp(new Date())}`;
@@ -189,6 +198,7 @@ cp ${shQuote(backupSource)} "$TARGET"
   if (result.code !== 0) {
     throw new HttpError(502, `Failed to restore file: ${result.stderr || result.stdout}`);
   }
+  return { before, after };
 }
 
 export async function restartComposeProject(server: Server, appPath: string): Promise<void> {

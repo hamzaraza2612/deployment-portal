@@ -110,6 +110,10 @@ model AuditLog {
   userEmail String
   action    String
   summary   String
+  // Structured before/after detail for the action, when there is any — e.g. { kind: "fields",
+  // changes: { name: { from, to }, ... } } for an edit, or { kind: "diff", entries: [...] } for
+  // a config file save/restore. Null for actions with nothing more to show than the summary.
+  details   Json?
   createdAt DateTime @default(now())
 
   @@index([createdAt])
