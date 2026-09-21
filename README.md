@@ -181,9 +181,12 @@ instead:
    the match is recomputed fresh on every single read/write/restore call, so
    a request can never reach outside that exact set.
 3. Opening a file shows its raw content in an editor; `.json` files are
-   validated (client-side live, and again server-side before saving) so a
-   malformed save is rejected with a parse error instead of breaking the
-   app.
+   checked client-side live and a warning is shown if it doesn't parse as
+   strict JSON — but this is only a warning, not a block: some of these
+   files intentionally contain things a strict parser rejects (`//`
+   comments, trailing commas) that whatever actually reads them on the
+   server tolerates fine, so **Save** stays enabled and the file is
+   written exactly as given either way.
 4. **Save** always backs up the current version first — into
    `Backups/ConfigBackup_<timestamp>/<file>` on the same server, next to
    deployment backups but named distinctly — before writing the new content
