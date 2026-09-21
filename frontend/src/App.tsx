@@ -15,7 +15,6 @@ import { Links } from "./pages/Links";
 import { Monitoring } from "./pages/Monitoring";
 import { Promotions } from "./pages/Promotions";
 import { ConfigFiles } from "./pages/ConfigFiles";
-import { GitCredentials } from "./pages/GitCredentials";
 import { AuditLogs } from "./pages/AuditLogs";
 import type { Role } from "./lib/types";
 
@@ -90,14 +89,6 @@ export default function App() {
         <Route path="/links" element={<Links />} />
         <Route path="/servers" element={<Servers />} />
         <Route path="/repositories" element={<Repositories />} />
-        <Route
-          path="/git-credentials"
-          element={
-            <RequireAuth roles={["ADMIN"]}>
-              <GitCredentials />
-            </RequireAuth>
-          }
-        />
         <Route
           path="/users"
           element={

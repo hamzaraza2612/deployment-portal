@@ -233,8 +233,9 @@ lists which server and which container, grouped by server, with a link to
 ## Roles
 
 - **Admin** — manage servers, repositories, and users; can also deploy; sees
-  every environment; the only role that can see **Monitoring**, **Git
-  Credentials**, and **Audit Logs**.
+  every environment; the only role that can see **Monitoring** and **Audit
+  Logs**, and the only one who sees the Git Credentials manager on the
+  Repositories page.
 - **Operator** — can trigger deployments and test server connections, but
   cannot manage servers/repositories/users.
 - **Viewer** — read-only: dashboard, server/repository lists, deployment
@@ -252,13 +253,19 @@ repo isn't tied to one environment.
 ## Git credentials
 
 Adding a repository normally asks for a git username/token for its host.
-Under **Git Credentials** (Admin-only) you can instead save one
-username/token per git host once — the next time a repository is added on
-that host, leave the username/token fields blank and the portal resolves
-them from the saved credential automatically. The repository still gets
-its own encrypted copy of the credential at creation time, so deleting or
-rotating a saved credential later never breaks a repository that already
-used it; it only affects repositories added afterwards.
+A collapsible **Git Credentials** manager lives right on the
+**Repositories** page (Admin-only, collapsed by default to keep the page
+compact) to save one username/token per git host once. From then on,
+adding a repository on that host automatically detects the match from the
+URL you type and hides the username/token fields entirely — showing
+"Using the saved credential for `<host>`" instead — so there's nothing to
+re-enter. Adding a repository on a *new* host still asks for a
+username/token, with a checkbox (checked by default) to save it as that
+host's credential at the same time, so it's a one-time entry per host
+going forward. The repository always gets its own encrypted copy of the
+credential at creation time, so deleting or rotating a saved credential
+later never breaks a repository that already used it — it only affects
+repositories added afterwards.
 
 ## Audit logs
 
@@ -268,8 +275,10 @@ revert, and promotion; container start/stop/restart/recreate; and every
 config file save/restore — is recorded to an **Audit Logs** page
 (Admin-only), showing who did it (name + email, snapshotted at the time
 of the action so the record survives that user later being deleted),
-when, and a human-readable summary of what happened. The list is
-searchable across the user, action type, and summary.
+when, and a human-readable summary of what happened — the table itself
+doesn't show the raw internal action code (e.g. `config.save`), just the
+plain-English summary; search still matches against it under the hood
+(user, action type, or summary).
 
 Edits carry a **"View detail"** button with the actual before/after:
 editing a server, user, repository, git credential, or link shows a

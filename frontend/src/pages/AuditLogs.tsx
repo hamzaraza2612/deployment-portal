@@ -67,7 +67,6 @@ export function AuditLogs() {
               <tr>
                 <th>Time</th>
                 <th>User</th>
-                <th>Action</th>
                 <th>Summary</th>
                 <th></th>
               </tr>
@@ -87,9 +86,6 @@ export function AuditLogs() {
                           {log.userEmail}
                         </div>
                       </td>
-                      <td>
-                        <code style={{ fontSize: 12.5 }}>{log.action}</code>
-                      </td>
                       <td>{log.summary}</td>
                       <td>
                         {log.details && (
@@ -104,7 +100,7 @@ export function AuditLogs() {
                     </tr>
                     {expanded && log.details && (
                       <tr>
-                        <td colSpan={5} style={{ background: "var(--bg-elevated)" }}>
+                        <td colSpan={4} style={{ background: "var(--bg-elevated)" }}>
                           <AuditDetail log={log} />
                         </td>
                       </tr>
