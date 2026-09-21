@@ -423,9 +423,9 @@ export function ConfigFiles() {
             <table>
               <thead>
                 <tr>
-                  <th>When</th>
-                  <th>Who</th>
-                  <th>What</th>
+                  <th>Time and Date</th>
+                  <th>User</th>
+                  <th>Action</th>
                   <th></th>
                 </tr>
               </thead>
