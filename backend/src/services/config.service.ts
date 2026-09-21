@@ -90,10 +90,13 @@ export async function writeConfigFile(
   const filePath = await assertConfigFileExists(server, appPath, relativePath);
   const normalizedRel = path.posix.normalize(relativePath);
 
-  // Strict JSON.parse isn't authoritative here — some of these files parse fine for whatever
-  // reads them on the server (lenient parser, BOM, trailing comma, etc.) despite failing a
-  // strict check, so this is surfaced to the editor as a warning only (see the /content route),
-  // never blocks the write itself. The file is saved exactly as given, byte for byte.
+  if (normalizedRel.toLowerCase().endsWith(".json")) {
+    try {
+      JSON.parse(content);
+    } catch (err) {
+      throw new HttpError(400, `That's not valid JSON: ${(err as Error).message}`);
+    }
+  }
 
   const info = toConnectionInfo(server);
   const before = await readConfigFile(server, appPath, relativePath);
