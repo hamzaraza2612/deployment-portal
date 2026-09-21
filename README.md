@@ -267,6 +267,13 @@ credential at creation time, so deleting or rotating a saved credential
 later never breaks a repository that already used it — it only affects
 repositories added afterwards.
 
+The **Host** field accepts either a bare hostname (`gitlab.example.com`)
+or a full URL (`https://gitlab.example.com/`) — either way it's
+normalized down to just the hostname before matching, both when it's
+saved and every time a new repository's URL is checked against it, so a
+credential entered either way still matches. The host can also be
+corrected later by editing the credential, not just at creation.
+
 ## Audit logs
 
 Every mutating action in the portal — creating/editing/deleting servers,

@@ -31,6 +31,20 @@ function hostFromUrl(url: string): string | null {
   }
 }
 
+/**
+ * Mirrors the backend's normalization (lib/gitHost.ts) so a credential saved with a stray
+ * "https://" prefix or trailing slash still matches here too, even before that row is
+ * cleaned up — matching is always done on the normalized form, never the raw stored value.
+ */
+function normalizeHost(input: string): string {
+  const trimmed = input.trim();
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
+    const parsed = hostFromUrl(trimmed);
+    if (parsed) return parsed.toLowerCase();
+  }
+  return trimmed.replace(/\/.*$/, "").toLowerCase();
+}
+
 export function Repositories() {
   const { user } = useAuth();
   const canManage = user?.role === "ADMIN";
@@ -70,7 +84,7 @@ export function Repositories() {
   useEffect(loadCredentials, [canManage]);
 
   const repoHost = hostFromUrl(form.url);
-  const matchedCredential = !form.id && repoHost ? credentials.find((c) => c.host === repoHost) : undefined;
+  const matchedCredential = !form.id && repoHost ? credentials.find((c) => normalizeHost(c.host) === repoHost) : undefined;
   const showCredentialFields = !!form.id || !matchedCredential;
 
   function openCreate() {
@@ -144,7 +158,7 @@ export function Repositories() {
     setCredSaving(true);
     try {
       if (credForm.id) {
-        const payload: Record<string, string> = { username: credForm.username };
+        const payload: Record<string, string> = { host: credForm.host, username: credForm.username };
         if (credForm.secret) payload.secret = credForm.secret;
         await api.patch(`/git-credentials/${credForm.id}`, payload);
       } else {
@@ -239,7 +253,6 @@ export function Repositories() {
                         value={credForm.host}
                         onChange={(e) => setCredForm({ ...credForm, host: e.target.value })}
                         placeholder="gitlab.techbey.pk"
-                        disabled={!!credForm.id}
                         required
                       />
                     </div>
