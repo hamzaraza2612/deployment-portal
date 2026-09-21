@@ -186,7 +186,7 @@ export function ConfigFiles() {
       loadHistory(selectedFile);
       setMessage("Saved.");
       const restart = await confirm(
-        `Restart the container on ${selectedServer?.name} now so this change takes effect?`,
+        `Restart ${appName} on ${selectedServer?.name} now so this change takes effect?`,
         { title: "Restart container", confirmLabel: "Restart" }
       );
       if (restart) {

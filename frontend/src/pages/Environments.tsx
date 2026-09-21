@@ -27,6 +27,9 @@ function ServerContainers({ server }: { server: ServerRecord }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Containers acted on this session, most-recent-first — sorted to the top of the table so
+  // the one you just touched doesn't get lost among 40+ rows; not persisted across reloads.
+  const [recentIds, setRecentIds] = useState<string[]>([]);
   const { confirm, modal } = useConfirm();
 
   function openLogs(container: ContainerInfo) {
@@ -48,9 +51,15 @@ function ServerContainers({ server }: { server: ServerRecord }) {
 
   useEffect(load, [server.id]);
 
-  const filtered = (containers ?? []).filter((c) =>
-    c.name.toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const sorted = useMemo(() => {
+    const rank = new Map(recentIds.map((id, i) => [id, i]));
+    return [...(containers ?? [])].sort((a, b) => {
+      const ra = rank.has(a.id) ? rank.get(a.id)! : Infinity;
+      const rb = rank.has(b.id) ? rank.get(b.id)! : Infinity;
+      return ra - rb;
+    });
+  }, [containers, recentIds]);
+  const filtered = sorted.filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()));
   const runningCount = (containers ?? []).filter((c) => c.state === "running").length;
   const stoppedCount = (containers ?? []).length - runningCount;
 
@@ -83,6 +92,7 @@ function ServerContainers({ server }: { server: ServerRecord }) {
     }
     setBusyId(container.id);
     setError(null);
+    setRecentIds((prev) => [container.id, ...prev.filter((id) => id !== container.id)]);
     try {
       await api.post(`/servers/${server.id}/containers/${container.id}/action`, { action });
       load();
@@ -145,9 +155,14 @@ function ServerContainers({ server }: { server: ServerRecord }) {
               </thead>
               <tbody>
                 {filtered.map((c) => (
-                  <tr key={c.id}>
+                  <tr key={c.id} style={recentIds.includes(c.id) ? { background: "rgba(194, 30, 47, 0.04)" } : undefined}>
                     <td>
                       {c.name}
+                      {recentIds[0] === c.id && (
+                        <span className="badge badge-ADMIN" style={{ marginLeft: 8, fontSize: 10.5 }}>
+                          just updated
+                        </span>
+                      )}
                       {c.composeService && (
                         <div className="muted" style={{ fontSize: 12 }}>
                           {c.composeService}
