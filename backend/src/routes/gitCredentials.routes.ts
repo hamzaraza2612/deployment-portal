@@ -3,7 +3,8 @@ import { prisma } from "../lib/prisma";
 import { encrypt } from "../lib/crypto";
 import { recordAudit } from "../lib/audit";
 import { fieldChangeDetails } from "../lib/diff";
-import { asyncHandler } from "../middleware/errorHandler";
+import { normalizeHost } from "../lib/gitHost";
+import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { createGitCredentialSchema, updateGitCredentialSchema } from "../validators/schemas";
 
@@ -30,12 +31,23 @@ gitCredentialsRouter.get(
   })
 );
 
+async function assertHostAvailable(host: string, excludeId?: string): Promise<void> {
+  const existing = await prisma.gitCredential.findUnique({ where: { host } });
+  if (existing && existing.id !== excludeId) {
+    throw new HttpError(409, `A credential for ${host} already exists — edit that one instead.`);
+  }
+}
+
 gitCredentialsRouter.post(
   "/",
   asyncHandler(async (req, res) => {
     const body = createGitCredentialSchema.parse(req.body);
+    // Normalized so a host pasted as a full URL ("https://gitlab.example.com/") still
+    // matches a repository's own hostFromUrl() lookup later (see lib/gitHost.ts).
+    const host = normalizeHost(body.host);
+    await assertHostAvailable(host);
     const credential = await prisma.gitCredential.create({
-      data: { host: body.host, username: body.username, secret: encrypt(body.secret) },
+      data: { host, username: body.username, secret: encrypt(body.secret) },
       select: LIST_SELECT,
     });
     recordAudit(req.user!, "git-credential.create", `Added git credential for ${credential.host}`);
@@ -52,6 +64,11 @@ gitCredentialsRouter.patch(
       select: LIST_SELECT,
     });
     const data: Record<string, unknown> = { username: body.username };
+    if (body.host) {
+      const host = normalizeHost(body.host);
+      await assertHostAvailable(host, existing.id);
+      data.host = host;
+    }
     if (body.secret) data.secret = encrypt(body.secret);
     Object.keys(data).forEach((key) => data[key] === undefined && delete data[key]);
 
@@ -60,7 +77,7 @@ gitCredentialsRouter.patch(
       data,
       select: LIST_SELECT,
     });
-    const changes = fieldChangeDetails(existing, data, ["username"]);
+    const changes = fieldChangeDetails(existing, data, ["host", "username"]);
     const details = body.secret
       ? { kind: "fields", changes: { ...(changes?.changes as object), secret: { from: "(hidden)", to: "updated" } } }
       : changes;

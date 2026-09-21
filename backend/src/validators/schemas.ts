@@ -161,6 +161,7 @@ export const createGitCredentialSchema = z.object({
 });
 
 export const updateGitCredentialSchema = z.object({
+  host: z.string().min(1).optional(),
   username: z.string().min(1).optional(),
   secret: z.string().min(1).optional(),
 });

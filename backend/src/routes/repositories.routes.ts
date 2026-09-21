@@ -6,15 +6,7 @@ import { fieldChangeDetails } from "../lib/diff";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { createRepositorySchema, updateRepositorySchema } from "../validators/schemas";
-
-/** Extracts a usable hostname from a git remote URL, e.g. "gitlab.techbey.pk". */
-function hostFromUrl(url: string): string {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    throw new HttpError(400, "That doesn't look like a valid repository URL");
-  }
-}
+import { hostFromUrl, normalizeHost } from "../lib/gitHost";
 
 export const repositoriesRouter = Router();
 
@@ -50,7 +42,10 @@ repositoriesRouter.post(
     let secretPlain = body.secret;
     if (!username || !secretPlain) {
       const host = hostFromUrl(body.url);
-      const credential = await prisma.gitCredential.findUnique({ where: { host } });
+      // Matched by normalized host rather than a direct DB lookup, so a credential saved
+      // with a stray "https://" prefix or trailing slash still matches (see lib/gitHost.ts).
+      const allCredentials = await prisma.gitCredential.findMany();
+      const credential = allCredentials.find((c) => normalizeHost(c.host) === host);
       if (!credential) {
         throw new HttpError(
           400,
