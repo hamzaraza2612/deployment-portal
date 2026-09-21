@@ -350,18 +350,19 @@ export function ConfigFiles() {
               <button className="btn" disabled={saving} onClick={handleCancel}>
                 Cancel
               </button>
-              <button
-                className="btn btn-primary"
-                disabled={loadingContent || saving || !dirty || !!jsonError}
-                onClick={handleSave}
-              >
+              <button className="btn btn-primary" disabled={loadingContent || saving || !dirty} onClick={handleSave}>
                 {saving ? "Saving…" : "Save"}
               </button>
             </div>
           </div>
 
           {message && <div className="alert alert-info">{message}</div>}
-          {jsonError && <div className="alert alert-error">Invalid JSON: {jsonError}</div>}
+          {jsonError && (
+            <div className="alert alert-error">
+              This doesn't look like strict JSON ({jsonError}) — if that's expected (e.g. comments in the file),
+              you can still save it as-is.
+            </div>
+          )}
 
           {loadingContent ? (
             <div className="empty-state">Loading…</div>
