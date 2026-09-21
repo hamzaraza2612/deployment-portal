@@ -3,9 +3,13 @@ import { ZodError } from "zod";
 
 export class HttpError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  // Machine-readable tag a frontend caller can branch on (e.g. offering a follow-up action)
+  // without parsing the human-readable message text.
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -20,7 +24,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return;
   }
   if (err instanceof HttpError) {
-    res.status(err.status).json({ error: err.message });
+    res.status(err.status).json({ error: err.message, code: err.code });
     return;
   }
   console.error(err);

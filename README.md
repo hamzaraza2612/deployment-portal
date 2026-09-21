@@ -46,8 +46,8 @@ started/stopped/restarted but not recreated.
 
 Each server's card also shows a running vs. stopped container count next
 to its name, and a search box filters that server's containers. Live
-resource usage lives on two separate pages instead of cluttering this
-one — see **Docker Stats** and **Server Monitoring** below.
+resource usage lives on the separate **Monitoring** page instead of
+cluttering this one — see below.
 
 A **Logs** button per container opens `docker logs --tail N --timestamps`
 in its own full-page tab (`/environments/:serverId/containers/:id/logs`),
@@ -64,39 +64,37 @@ The **Deploy** wizard's branch and application pickers are searchable
 (type to filter, matched against the full list fetched from the server)
 rather than long plain dropdowns.
 
-## Docker Stats
+## Monitoring
 
-A dedicated, environment-grouped page showing **every container's live
-CPU%, memory usage/limit, and network/block I/O** (`docker stats
---no-stream`, refreshed every 3 seconds) — databases (Redis, Postgres,
-MSSQL, Mongo, …), caches, and application containers alike, whatever is
-running under Docker on that server. Open to every role with access to
-that environment; this page is read-only (no start/stop/recreate — those
-stay on **Environments**). Alerting on these values (thresholds, notify
-on a container going down) is planned but not built yet.
+**Admin only** — a single page under one **Monitoring** nav item, split
+into two tabs so it doesn't need two sidebar entries:
 
-## Server Monitoring
+- **Docker Stats** — every container's live **CPU%, memory usage/limit,
+  and network/block I/O** (`docker stats --no-stream`, refreshed every 3
+  seconds), grouped by environment — databases (Redis, Postgres, MSSQL,
+  Mongo, …), caches, and application containers alike, whatever is
+  running under Docker on that server. Read-only (no start/stop/recreate
+  — those stay on **Environments**).
+- **Server Monitoring** — host-level **CPU, RAM, and disk usage** per
+  server (`vmstat`/`free`/`df` over SSH, refreshed every 10 seconds),
+  grouped by environment, plus auto-detected **common services that
+  often run directly on the VM rather than in Docker** — Redis,
+  PostgreSQL, MSSQL, MongoDB, and Docker itself — with no per-server
+  configuration needed. Each is checked in order (a likely systemd unit
+  name, then its well-known port, then a process-name pattern), so it's
+  found whether or not it's managed by systemd or named unusually.
+  Detected services show CPU% and memory (`ps` on the resolved PID) when
+  a PID is available; undetected ones just show "Not found" rather than
+  blocking anything. This is deliberately a lightweight up/down +
+  resource check — no credentials are stored and no actual
+  connection/ping is made to the service.
 
-Host-level **CPU, RAM, and disk usage** per server (`vmstat`/`free`/`df`
-over SSH, refreshed every 10 seconds), grouped by environment — **Admin
-only**, enforced both by hiding the nav item and by the API route itself
-requiring the Admin role, not just a hidden button. This used to live
-inline on the Environments page; it's now separate so non-admin users
-(devs, QA) don't see host resource details they don't need, while still
-seeing container state on Environments and container-level metrics on
-Docker Stats.
-
-The same page also auto-detects **common services that often run
-directly on the VM rather than in Docker** — Redis, PostgreSQL, MSSQL,
-MongoDB, and Docker itself — with no per-server configuration needed.
-Each is checked in order (a likely systemd unit name, then its well-known
-port, then a process-name pattern), so it's found whether or not it's
-managed by systemd or named unusually. Detected services show CPU% and
-memory (`ps` on the resolved PID) when a PID is available; undetected
-ones just show "Not found" rather than blocking anything. This is
-deliberately a lightweight up/down + resource check — no credentials are
-stored and no actual connection/ping is made to the service. Alerting on
-any of this (host stats or service state) is planned for later.
+Both tabs are Admin-only, enforced both by hiding the nav item and by
+the API routes themselves requiring the Admin role, not just a hidden
+button — non-admin users (devs, QA) still see container state on
+**Environments**, just not host- or container-level resource metrics.
+Alerting on any of this (thresholds, notify on a container going down)
+is planned but not built yet.
 
 ## Links
 
@@ -183,9 +181,12 @@ instead:
    the match is recomputed fresh on every single read/write/restore call, so
    a request can never reach outside that exact set.
 3. Opening a file shows its raw content in an editor; `.json` files are
-   validated (client-side live, and again server-side before saving) so a
-   malformed save is rejected with a parse error instead of breaking the
-   app.
+   checked client-side live and a warning is shown if it doesn't parse as
+   strict JSON — but this is only a warning, not a block: some of these
+   files are valid for whatever actually reads them on the server despite
+   failing a strict parse (trailing commas, a lenient parser, etc.), so
+   **Save** stays enabled and the file is written exactly as given either
+   way.
 4. **Save** always backs up the current version first — into
    `Backups/ConfigBackup_<timestamp>/<file>` on the same server, next to
    deployment backups but named distinctly — before writing the new content
@@ -196,7 +197,11 @@ instead:
 5. Every file has a **Version history** — every backup ever taken of it,
    newest first — with a one-click **Restore this version** button. A
    restore backs up whatever's currently live before replacing it, so
-   restoring is itself undoable the same way.
+   restoring is itself undoable the same way. Right below it, an **Edit
+   history** section lists every recorded save/restore of that exact
+   file — who, when, and a "View detail" toggle for the full line-by-line
+   diff — so anyone with access to Config Files can see a file's history
+   without needing the Admin-only Audit Logs page.
 
 Nothing here is stored in the database — the server stays the single source
 of truth for these files, exactly like the rest of the portal; the portal is
@@ -231,8 +236,8 @@ lists which server and which container, grouped by server, with a link to
 ## Roles
 
 - **Admin** — manage servers, repositories, and users; can also deploy; sees
-  every environment; the only role that can see **Docker Stats**, **Server
-  Monitoring**, **Git Credentials**, and **Audit Logs**.
+  every environment; the only role that can see **Monitoring**, **Git
+  Credentials**, and **Audit Logs**.
 - **Operator** — can trigger deployments and test server connections, but
   cannot manage servers/repositories/users.
 - **Viewer** — read-only: dashboard, server/repository lists, deployment
@@ -275,14 +280,43 @@ field-by-field table of what changed (old value → new value; passwords
 and secrets are only ever flagged as changed, never shown), and saving or
 restoring a config file shows a full line-by-line diff of the file
 content (red = removed, green = added) — directly answering "who edited
-what, where, when, and exactly what changed."
+what, where, when, and exactly what changed." Config file edits also show
+this same history — who saved/restored it and what changed — directly
+under **Version history** on the Config Files page itself, scoped to
+just that one file, so anyone who can edit config files can see its
+history without needing the Admin-only Audit Logs page.
+
+Audit log rows live in Postgres (the `AuditLog` table, same database as
+everything else) and are kept forever — there's no automatic expiry or
+pruning. The Audit Logs page only ever shows the most recent 300, but
+every row stays in the database indefinitely unless someone deletes it
+directly. See "Persistent storage" below for where that data physically
+lives on disk.
+
+## Persistent storage
+
+Everything the portal knows — servers, repositories, users, deployment
+history, promotions, git credentials, and audit logs — lives in one
+Postgres database, and that database's data directory is bind-mounted to
+`./data/postgres` on the host running `docker compose` (see
+`docker-compose.yml`), not a named Docker volume. That distinction
+matters: `docker compose down -v` removes named volumes but leaves a
+bind-mounted host directory alone, so tearing down and rebuilding the
+portal's own containers (or any accidental `-v`) never wipes its data —
+only an explicit `rm -rf ./data/postgres` would. There's no separate
+storage path or retention window for audit logs specifically; they're
+just rows in that same database, kept indefinitely.
 
 ## Running it
 
 1. Copy `.env.example` to `.env` and fill in real values — in particular
    `JWT_SECRET`, `ENCRYPTION_KEY`, and the seeded `ADMIN_EMAIL` /
    `ADMIN_PASSWORD`.
-2. `docker compose up -d --build`
+2. `docker compose up -d --build` — Postgres data lives in `./data/postgres`
+   on the host (a bind mount, not a named Docker volume), so it survives a
+   `docker compose down -v` — only the app's own container/volumes get torn
+   down, never the portal's own database (servers, deployment history,
+   audit logs, everything).
 3. Open `http://localhost:8080`, log in with the seeded admin account.
 4. Add your environments under **Servers** (host, SSH user, auth method,
    `gitBaseDir`, `auditLogPath`, and the deployment base paths — e.g. what
@@ -320,4 +354,10 @@ npm run dev                 # http://localhost:5173, proxies /api to :4000
 - Deleting a server or user that still has deployment/promotion history
   attached is blocked with a clear error instead of failing with a raw
   database foreign-key error — deployment and audit history are never
-  silently destroyed as a side effect of an unrelated delete.
+  silently destroyed as a side effect of an unrelated delete. For a
+  server added by mistake that already picked up real history, an Admin
+  can **force-delete** it (a second, explicit confirmation) — this
+  permanently deletes that server's deployment/promotion records along
+  with it. Its audit log entries are never affected either way: they
+  don't have a foreign key to Server at all, so they survive regardless
+  of whether the server delete was blocked, plain, or forced.

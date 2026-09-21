@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
-import type { ConfigFileBackupEntry, ConfigFileEntry, ServerRecord } from "../lib/types";
+import type { AuditLogEntry, ConfigFileBackupEntry, ConfigFileEntry, ServerRecord } from "../lib/types";
 import { formatDateTime } from "../components/Badge";
 import { SearchSelect } from "../components/SearchSelect";
+import { AuditDetail } from "../components/AuditDetail";
 import { useConfirm } from "../hooks/useConfirm";
 
 function formatSize(bytes: number): string {
@@ -35,6 +36,9 @@ export function ConfigFiles() {
 
   const [backups, setBackups] = useState<ConfigFileBackupEntry[]>([]);
   const [restoringName, setRestoringName] = useState<string | null>(null);
+
+  const [history, setHistory] = useState<AuditLogEntry[]>([]);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -86,7 +90,17 @@ export function ConfigFiles() {
     setContent("");
     setOriginalContent("");
     setBackups([]);
+    setHistory([]);
+    setExpandedHistoryId(null);
     setMessage(null);
+  }
+
+  function loadHistory(relativePath: string) {
+    const params = new URLSearchParams({ serverId, basePath, appName, relativePath });
+    api
+      .get<AuditLogEntry[]>(`/config-files/history?${params.toString()}`)
+      .then(setHistory)
+      .catch(() => undefined);
   }
 
   async function handleBasePathChange(path: string) {
@@ -141,6 +155,7 @@ export function ConfigFiles() {
       setContent(contentRes.content);
       setOriginalContent(contentRes.content);
       setBackups(backupsRes);
+      loadHistory(relativePath);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to open file");
       setSelectedFile(null);
@@ -168,6 +183,7 @@ export function ConfigFiles() {
         .get<ConfigFileBackupEntry[]>(`/config-files/backups?${params.toString()}`)
         .then(setBackups)
         .catch(() => undefined);
+      loadHistory(selectedFile);
       setMessage("Saved.");
       const restart = await confirm(
         `Restart the container on ${selectedServer?.name} now so this change takes effect?`,
@@ -334,18 +350,18 @@ export function ConfigFiles() {
               <button className="btn" disabled={saving} onClick={handleCancel}>
                 Cancel
               </button>
-              <button
-                className="btn btn-primary"
-                disabled={loadingContent || saving || !dirty || !!jsonError}
-                onClick={handleSave}
-              >
+              <button className="btn btn-primary" disabled={loadingContent || saving || !dirty} onClick={handleSave}>
                 {saving ? "Saving…" : "Save"}
               </button>
             </div>
           </div>
 
           {message && <div className="alert alert-info">{message}</div>}
-          {jsonError && <div className="alert alert-error">Invalid JSON: {jsonError}</div>}
+          {jsonError && (
+            <div className="alert alert-error">
+              This doesn't look like strict JSON ({jsonError}) — you can still save it if that's expected.
+            </div>
+          )}
 
           {loadingContent ? (
             <div className="empty-state">Loading…</div>
@@ -394,6 +410,62 @@ export function ConfigFiles() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          )}
+
+          <h3 style={{ marginTop: 20 }}>Edit history</h3>
+          {history.length === 0 ? (
+            <div className="muted" style={{ fontSize: 13 }}>
+              No recorded edits yet for this file (edits made before this feature was added aren't included).
+            </div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Who</th>
+                  <th>What</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h) => {
+                  const expanded = expandedHistoryId === h.id;
+                  return (
+                    <Fragment key={h.id}>
+                      <tr>
+                        <td className="muted" style={{ whiteSpace: "nowrap" }}>
+                          {formatDateTime(h.createdAt)}
+                        </td>
+                        <td>
+                          {h.userName}
+                          <div className="muted" style={{ fontSize: 12 }}>
+                            {h.userEmail}
+                          </div>
+                        </td>
+                        <td>{h.action === "config.restore" ? "Restored" : "Saved"}</td>
+                        <td>
+                          {h.details && (
+                            <button
+                              className="btn btn-sm"
+                              onClick={() => setExpandedHistoryId(expanded ? null : h.id)}
+                            >
+                              {expanded ? "Hide detail" : "View detail"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                      {expanded && h.details && (
+                        <tr>
+                          <td colSpan={4} style={{ background: "var(--bg-elevated)" }}>
+                            <AuditDetail log={h} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           )}

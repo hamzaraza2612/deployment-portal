@@ -149,19 +149,58 @@ serversRouter.delete(
   requireRole("ADMIN"),
   asyncHandler(async (req, res) => {
     const server = await prisma.server.findUniqueOrThrow({ where: { id: req.params.id } });
-    const [deploymentCount, promotionTargetCount] = await Promise.all([
-      prisma.deployment.count({ where: { serverId: server.id } }),
-      prisma.promotionRequest.count({ where: { targetServerId: server.id } }),
-    ]);
-    if (deploymentCount > 0 || promotionTargetCount > 0) {
+    const deploymentIds = (
+      await prisma.deployment.findMany({ where: { serverId: server.id }, select: { id: true } })
+    ).map((d) => d.id);
+    const deploymentCount = deploymentIds.length;
+    const promotionCount = await prisma.promotionRequest.count({
+      where: {
+        OR: [
+          { targetServerId: server.id },
+          { sourceDeploymentId: { in: deploymentIds } },
+          { resultDeploymentId: { in: deploymentIds } },
+        ],
+      },
+    });
+    const force = req.query.force === "true";
+
+    if ((deploymentCount > 0 || promotionCount > 0) && !force) {
       throw new HttpError(
         400,
-        `Cannot delete ${server.name} — it has ${deploymentCount} deployment(s) and ${promotionTargetCount} ` +
-          `promotion record(s) in its history, which are kept for audit purposes and can't be removed with it.`
+        `Cannot delete ${server.name} — it has ${deploymentCount} deployment(s) and ${promotionCount} ` +
+          `promotion record(s) in its history, which are kept for audit purposes and can't be removed with it. ` +
+          `If it was added by mistake, an Admin can force-delete it along with that history.`,
+        "HAS_HISTORY"
       );
     }
+
+    if (force && (deploymentCount > 0 || promotionCount > 0)) {
+      await prisma.$transaction([
+        prisma.promotionRequest.deleteMany({
+          where: {
+            OR: [
+              { targetServerId: server.id },
+              { sourceDeploymentId: { in: deploymentIds } },
+              { resultDeploymentId: { in: deploymentIds } },
+            ],
+          },
+        }),
+        // Deployments on this server only ever revert-chain to other deployments on the same
+        // server, so this fully clears the self-referencing FK before the batch delete below.
+        prisma.deployment.updateMany({ where: { serverId: server.id }, data: { revertedFromId: null } }),
+        prisma.deployment.deleteMany({ where: { serverId: server.id } }),
+      ]);
+    }
+
     await prisma.server.delete({ where: { id: req.params.id } });
-    recordAudit(req.user!, "server.delete", `Deleted server ${server.name} (${server.environment})`);
+    recordAudit(
+      req.user!,
+      "server.delete",
+      force && (deploymentCount > 0 || promotionCount > 0)
+        ? `Force-deleted server ${server.name} (${server.environment}) along with ${deploymentCount} ` +
+          `deployment(s) and ${promotionCount} promotion record(s)`
+        : `Deleted server ${server.name} (${server.environment})`
+    );
     res.status(204).end();
   })
 );
