@@ -191,6 +191,123 @@ export function Repositories() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
+      {canManage && (
+        <div className="card">
+          <button
+            type="button"
+            onClick={() => setCredPanelOpen((open) => !open)}
+            style={{
+              all: "unset",
+              display: "flex",
+              width: "100%",
+              alignItems: "center",
+              justifyContent: "space-between",
+              cursor: "pointer",
+              boxSizing: "border-box",
+            }}
+          >
+            <div>
+              <strong>Git Credentials</strong>
+              <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>
+                {credentials.length > 0
+                  ? `${credentials.length} saved host credential${credentials.length === 1 ? "" : "s"} — reused ` +
+                    `automatically when adding a repository on that host.`
+                  : "Save a username/token once per git host so adding a repository on it won't ask again."}
+              </div>
+            </div>
+            <span className="muted" style={{ fontSize: 22, lineHeight: 1, fontWeight: 300 }}>
+              {credPanelOpen ? "−" : "+"}
+            </span>
+          </button>
+
+          {credPanelOpen && (
+            <div style={{ marginTop: 14 }}>
+              {credError && <div className="alert alert-error">{credError}</div>}
+
+              {!credFormOpen && (
+                <button className="btn btn-sm" style={{ marginBottom: 10 }} onClick={openCredCreate}>
+                  Add credential
+                </button>
+              )}
+
+              {credFormOpen && (
+                <form onSubmit={handleCredSubmit} style={{ marginBottom: 12 }}>
+                  <div className="form-grid">
+                    <div className="form-field">
+                      <label>Host</label>
+                      <input
+                        value={credForm.host}
+                        onChange={(e) => setCredForm({ ...credForm, host: e.target.value })}
+                        placeholder="gitlab.techbey.pk"
+                        disabled={!!credForm.id}
+                        required
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label>Git username</label>
+                      <input
+                        value={credForm.username}
+                        onChange={(e) => setCredForm({ ...credForm, username: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label>Git password / token {credForm.id && "(leave blank to keep current)"}</label>
+                      <input
+                        type="password"
+                        value={credForm.secret}
+                        onChange={(e) => setCredForm({ ...credForm, secret: e.target.value })}
+                        required={!credForm.id}
+                      />
+                    </div>
+                  </div>
+                  <div className="row-actions">
+                    <button type="button" className="btn" onClick={() => setCredFormOpen(false)}>
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={credSaving}>
+                      {credSaving ? "Saving…" : "Save credential"}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {credentials.length === 0 ? (
+                <div className="empty-state">No saved git credentials yet.</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Host</th>
+                      <th>Username</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {credentials.map((c) => (
+                      <tr key={c.id}>
+                        <td>{c.host}</td>
+                        <td>{c.username}</td>
+                        <td>
+                          <div className="row-actions">
+                            <button className="btn btn-sm" onClick={() => openCredEdit(c)}>
+                              Edit
+                            </button>
+                            <button className="btn btn-sm btn-danger" onClick={() => handleCredDelete(c.id)}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {formOpen && (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>{form.id ? "Edit repository" : "Add repository"}</h3>
@@ -294,112 +411,6 @@ export function Repositories() {
           </table>
         )}
       </div>
-
-      {canManage && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div
-            className="page-header"
-            style={{ marginBottom: credPanelOpen ? 10 : 0, cursor: "pointer" }}
-            onClick={() => setCredPanelOpen((open) => !open)}
-          >
-            <div>
-              <strong>Git Credentials</strong>
-              <div className="muted" style={{ fontSize: 12.5 }}>
-                Saved username/token per git host, reused automatically when adding a repository on that host.
-              </div>
-            </div>
-            <button type="button" className="btn btn-sm">
-              {credPanelOpen ? "Hide" : credentials.length > 0 ? `Manage (${credentials.length})` : "Manage"}
-            </button>
-          </div>
-
-          {credPanelOpen && (
-            <div>
-              {credError && <div className="alert alert-error">{credError}</div>}
-
-              {!credFormOpen && (
-                <button className="btn btn-sm" style={{ marginBottom: 10 }} onClick={openCredCreate}>
-                  Add credential
-                </button>
-              )}
-
-              {credFormOpen && (
-                <form onSubmit={handleCredSubmit} style={{ marginBottom: 12 }}>
-                  <div className="form-grid">
-                    <div className="form-field">
-                      <label>Host</label>
-                      <input
-                        value={credForm.host}
-                        onChange={(e) => setCredForm({ ...credForm, host: e.target.value })}
-                        placeholder="gitlab.techbey.pk"
-                        disabled={!!credForm.id}
-                        required
-                      />
-                    </div>
-                    <div className="form-field">
-                      <label>Git username</label>
-                      <input
-                        value={credForm.username}
-                        onChange={(e) => setCredForm({ ...credForm, username: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="form-field">
-                      <label>Git password / token {credForm.id && "(leave blank to keep current)"}</label>
-                      <input
-                        type="password"
-                        value={credForm.secret}
-                        onChange={(e) => setCredForm({ ...credForm, secret: e.target.value })}
-                        required={!credForm.id}
-                      />
-                    </div>
-                  </div>
-                  <div className="row-actions">
-                    <button type="button" className="btn" onClick={() => setCredFormOpen(false)}>
-                      Cancel
-                    </button>
-                    <button type="submit" className="btn btn-primary" disabled={credSaving}>
-                      {credSaving ? "Saving…" : "Save credential"}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {credentials.length === 0 ? (
-                <div className="empty-state">No saved git credentials yet.</div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Host</th>
-                      <th>Username</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {credentials.map((c) => (
-                      <tr key={c.id}>
-                        <td>{c.host}</td>
-                        <td>{c.username}</td>
-                        <td>
-                          <div className="row-actions">
-                            <button className="btn btn-sm" onClick={() => openCredEdit(c)}>
-                              Edit
-                            </button>
-                            <button className="btn btn-sm btn-danger" onClick={() => handleCredDelete(c.id)}>
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

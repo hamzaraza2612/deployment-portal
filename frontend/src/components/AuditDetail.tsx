@@ -46,7 +46,7 @@ function DiffView({ entries }: { entries: unknown }) {
   }
   const shown = entries.slice(0, MAX_DIFF_RENDER_LINES);
   return (
-    <div className="log-viewer" style={{ maxHeight: 360 }}>
+    <div className="diff-viewer" style={{ maxHeight: 360 }}>
       {shown.map((entry, i) => {
         const e = entry as { type?: unknown; line?: unknown } | null;
         const type = e?.type === "add" || e?.type === "remove" ? e.type : "context";
