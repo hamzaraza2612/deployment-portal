@@ -12,8 +12,7 @@ import { History } from "./pages/History";
 import { DeploymentDetail } from "./pages/DeploymentDetail";
 import { ContainerLogs } from "./pages/ContainerLogs";
 import { Links } from "./pages/Links";
-import { DockerStats } from "./pages/DockerStats";
-import { ServerMonitoring } from "./pages/ServerMonitoring";
+import { Monitoring } from "./pages/Monitoring";
 import { Promotions } from "./pages/Promotions";
 import { ConfigFiles } from "./pages/ConfigFiles";
 import { GitCredentials } from "./pages/GitCredentials";
@@ -81,18 +80,10 @@ export default function App() {
         />
         <Route path="/environments" element={<Environments />} />
         <Route
-          path="/docker-stats"
+          path="/monitoring"
           element={
             <RequireAuth roles={["ADMIN"]}>
-              <DockerStats />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/server-monitoring"
-          element={
-            <RequireAuth roles={["ADMIN"]}>
-              <ServerMonitoring />
+              <Monitoring />
             </RequireAuth>
           }
         />

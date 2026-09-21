@@ -138,6 +138,21 @@ export function Servers() {
       await api.delete(`/servers/${id}`);
       load();
     } catch (err) {
+      if (err instanceof ApiError && err.code === "HAS_HISTORY") {
+        const forceOk = await confirm(
+          `${err.message} Force-delete it anyway? This permanently deletes that deployment/promotion history ` +
+            `along with the server — it cannot be undone. (Its audit log entries are kept regardless.)`,
+          { title: "Force-delete server", confirmLabel: "Force delete", danger: true }
+        );
+        if (!forceOk) return;
+        try {
+          await api.delete(`/servers/${id}?force=true`);
+          load();
+        } catch (forceErr) {
+          setError(forceErr instanceof ApiError ? forceErr.message : "Failed to force-delete server");
+        }
+        return;
+      }
       setError(err instanceof ApiError ? err.message : "Failed to delete server");
     }
   }

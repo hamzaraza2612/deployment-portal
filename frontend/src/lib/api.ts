@@ -3,10 +3,12 @@ const API_BASE = "/api";
 export class ApiError extends Error {
   status: number;
   details?: unknown;
-  constructor(status: number, message: string, details?: unknown) {
+  code?: string;
+  constructor(status: number, message: string, details?: unknown, code?: string) {
     super(message);
     this.status = status;
     this.details = details;
+    this.code = code;
   }
 }
 
@@ -27,7 +29,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 
   if (!res.ok) {
     const message = isJson && data?.error ? data.error : `Request failed (${res.status})`;
-    throw new ApiError(res.status, message, isJson ? data?.details : undefined);
+    throw new ApiError(res.status, message, isJson ? data?.details : undefined, isJson ? data?.code : undefined);
   }
 
   return data as T;

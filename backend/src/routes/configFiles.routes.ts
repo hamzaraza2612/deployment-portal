@@ -85,7 +85,10 @@ configFilesRouter.put(
       req.user!,
       "config.save",
       `Saved ${body.relativePath} for ${body.appName} on ${server.name} (backup: ${result.backupName})`,
-      textDiffDetails(result.before, body.content)
+      {
+        ...textDiffDetails(result.before, body.content),
+        context: { serverId: server.id, appName: body.appName, relativePath: body.relativePath },
+      }
     );
     res.json({ backupName: result.backupName });
   })
@@ -118,9 +121,39 @@ configFilesRouter.post(
       req.user!,
       "config.restore",
       `Restored ${body.relativePath} for ${body.appName} on ${server.name} from ${body.backupName}`,
-      textDiffDetails(before, after)
+      {
+        ...textDiffDetails(before, after),
+        context: { serverId: server.id, appName: body.appName, relativePath: body.relativePath },
+      }
     );
     res.json({ ok: true });
+  })
+);
+
+configFilesRouter.get(
+  "/history",
+  asyncHandler(async (req, res) => {
+    const query = configFileContentSchema.parse({
+      serverId: req.query.serverId,
+      basePath: req.query.basePath,
+      appName: req.query.appName,
+      relativePath: req.query.relativePath,
+    });
+    const server = await loadAccessibleServer(req.user!, query.serverId);
+    resolveAppPath(server, query.basePath, query.appName);
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        action: { in: ["config.save", "config.restore"] },
+        AND: [
+          { details: { path: ["context", "serverId"], equals: server.id } },
+          { details: { path: ["context", "appName"], equals: query.appName } },
+          { details: { path: ["context", "relativePath"], equals: query.relativePath } },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    res.json(logs);
   })
 );
 
