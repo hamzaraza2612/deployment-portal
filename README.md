@@ -49,11 +49,16 @@ to its name, and a search box filters that server's containers. Live
 resource usage lives on the separate **Monitoring** page instead of
 cluttering this one — see below.
 
-Whichever container you Start/Stop/Restart/Recreate jumps to the top of
-that server's table (tagged **"just updated"**) instead of staying
-buried wherever it was in a long list — handy on a server with 40+
-containers. This only tracks actions taken in the current page view, not
-saved anywhere.
+Containers are sorted by how recently Docker itself says each one last
+changed state (parsed from `docker ps`'s own "Up 2 minutes" / "Exited …
+ago" text), with the most recent at the top and tagged **"just
+updated"** for a few minutes — so whatever you most recently touched
+doesn't get buried in a server with 40+ containers. Because this reads
+Docker's own state rather than anything the portal tracked, it's
+correct no matter what caused the change: an action on this page, a
+deployment's restart, Config Files' "restart container?", or a manual
+`docker restart` over SSH. The list also refreshes itself every 15
+seconds so an outside change still surfaces without a manual refresh.
 
 A **Logs** button per container opens `docker logs --tail N --timestamps`
 in its own full-page tab (`/environments/:serverId/containers/:id/logs`),

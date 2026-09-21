@@ -11,6 +11,45 @@ function containerStateClass(state: string): string {
   return "badge-FAILED"; // exited, dead, etc.
 }
 
+const UNIT_SECONDS: Record<string, number> = {
+  second: 1,
+  minute: 60,
+  hour: 3600,
+  day: 86400,
+  week: 604800,
+  month: 2629800,
+  year: 31557600,
+};
+
+/**
+ * Seconds since Docker's own Status text says this container last changed state ("Up 2
+ * minutes", "Exited (0) 3 hours ago", "Restarting (1) 5 seconds ago", "Created"). This is
+ * Docker's own truth, not anything this app tracked — so it reflects a restart/recreate no
+ * matter where it came from: this page, a deployment, Config Files' restart, or a manual
+ * CLI command on the server. Unparseable/never-started statuses sort last.
+ */
+function elapsedSeconds(status: string): number {
+  const phrase = status
+    .trim()
+    .replace(/^up\s+/i, "")
+    .replace(/^exited\s*\([^)]*\)\s*/i, "")
+    .replace(/^restarting\s*\([^)]*\)\s*/i, "")
+    .replace(/^paused\s*/i, "")
+    .replace(/\s+ago$/i, "")
+    .trim()
+    .toLowerCase();
+  if (!phrase || phrase === "created") return Infinity;
+  if (phrase.startsWith("less than a second")) return 0;
+  const about = phrase.match(/^about an?\s+(second|minute|hour|day|week|month|year)/);
+  if (about) return UNIT_SECONDS[about[1]] ?? Infinity;
+  const counted = phrase.match(/^(\d+)\s+(second|minute|hour|day|week|month|year)s?/);
+  if (counted) return Number(counted[1]) * (UNIT_SECONDS[counted[2]] ?? Infinity);
+  return Infinity;
+}
+
+const RECENT_THRESHOLD_SECONDS = 5 * 60;
+const CONTAINERS_REFRESH_MS = 15000;
+
 /** Docker's Ports string is verbose (host+container port, protocol, dual-stack) — show just the external port(s). */
 function externalPorts(portsStr: string): string {
   const matches = Array.from(portsStr.matchAll(/:(\d+)->/g)).map((m) => m[1]);
@@ -27,9 +66,6 @@ function ServerContainers({ server }: { server: ServerRecord }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  // Containers acted on this session, most-recent-first — sorted to the top of the table so
-  // the one you just touched doesn't get lost among 40+ rows; not persisted across reloads.
-  const [recentIds, setRecentIds] = useState<string[]>([]);
   const { confirm, modal } = useConfirm();
 
   function openLogs(container: ContainerInfo) {
@@ -49,16 +85,19 @@ function ServerContainers({ server }: { server: ServerRecord }) {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, [server.id]);
+  useEffect(() => {
+    load();
+    // Polls so a container restarted outside this page (a deployment, Config Files' restart,
+    // or a manual CLI command on the server) still surfaces here without a manual refresh.
+    const interval = window.setInterval(load, CONTAINERS_REFRESH_MS);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [server.id]);
 
-  const sorted = useMemo(() => {
-    const rank = new Map(recentIds.map((id, i) => [id, i]));
-    return [...(containers ?? [])].sort((a, b) => {
-      const ra = rank.has(a.id) ? rank.get(a.id)! : Infinity;
-      const rb = rank.has(b.id) ? rank.get(b.id)! : Infinity;
-      return ra - rb;
-    });
-  }, [containers, recentIds]);
+  const sorted = useMemo(
+    () => [...(containers ?? [])].sort((a, b) => elapsedSeconds(a.status) - elapsedSeconds(b.status)),
+    [containers]
+  );
   const filtered = sorted.filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()));
   const runningCount = (containers ?? []).filter((c) => c.state === "running").length;
   const stoppedCount = (containers ?? []).length - runningCount;
@@ -92,7 +131,6 @@ function ServerContainers({ server }: { server: ServerRecord }) {
     }
     setBusyId(container.id);
     setError(null);
-    setRecentIds((prev) => [container.id, ...prev.filter((id) => id !== container.id)]);
     try {
       await api.post(`/servers/${server.id}/containers/${container.id}/action`, { action });
       load();
@@ -154,11 +192,13 @@ function ServerContainers({ server }: { server: ServerRecord }) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c) => (
-                  <tr key={c.id} style={recentIds.includes(c.id) ? { background: "rgba(194, 30, 47, 0.04)" } : undefined}>
+                {filtered.map((c) => {
+                  const justUpdated = elapsedSeconds(c.status) < RECENT_THRESHOLD_SECONDS;
+                  return (
+                  <tr key={c.id} style={justUpdated ? { background: "rgba(194, 30, 47, 0.04)" } : undefined}>
                     <td>
                       {c.name}
-                      {recentIds[0] === c.id && (
+                      {justUpdated && (
                         <span className="badge badge-ADMIN" style={{ marginLeft: 8, fontSize: 10.5 }}>
                           just updated
                         </span>
@@ -215,7 +255,8 @@ function ServerContainers({ server }: { server: ServerRecord }) {
                       </td>
                     )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
