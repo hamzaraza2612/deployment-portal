@@ -49,6 +49,12 @@ to its name, and a search box filters that server's containers. Live
 resource usage lives on the separate **Monitoring** page instead of
 cluttering this one — see below.
 
+Whichever container you Start/Stop/Restart/Recreate jumps to the top of
+that server's table (tagged **"just updated"**) instead of staying
+buried wherever it was in a long list — handy on a server with 40+
+containers. This only tracks actions taken in the current page view, not
+saved anywhere.
+
 A **Logs** button per container opens `docker logs --tail N --timestamps`
 in its own full-page tab (`/environments/:serverId/containers/:id/logs`),
 not a small popup — auto-refreshing every 3 seconds, with a selectable
