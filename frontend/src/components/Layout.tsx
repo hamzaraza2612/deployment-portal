@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import type { PromotionRequestListItem } from "../lib/types";
@@ -25,6 +25,11 @@ const NAV_ITEMS = [
 export function Layout() {
   const { user, logout } = useAuth();
   const [pendingPromotions, setPendingPromotions] = useState(0);
+  const [navOpen, setNavOpen] = useState(false);
+  const location = useLocation();
+
+  // Close the mobile nav drawer automatically whenever the route changes.
+  useEffect(() => setNavOpen(false), [location.pathname]);
 
   useEffect(() => {
     if (!user) return;
@@ -49,7 +54,8 @@ export function Layout() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      {navOpen && <div className="sidebar-backdrop" onClick={() => setNavOpen(false)} />}
+      <aside className={"sidebar" + (navOpen ? " open" : "")}>
         <div className="sidebar-brand">DevOps Portal</div>
         <nav className="sidebar-nav">
           {NAV_ITEMS.filter((item) => !user || item.roles.includes(user.role)).map((item) => (
@@ -69,14 +75,27 @@ export function Layout() {
       </aside>
       <div className="content-area">
         <header className="topbar">
-          <DownContainersAlert />
-          <div className="topbar-user">
-            <span>{user?.name}</span>
-            <span className={`badge badge-${user?.role}`}>{user?.role}</span>
+          <div className="topbar-left">
+            <button
+              type="button"
+              className="btn btn-sm nav-toggle"
+              aria-label="Toggle navigation"
+              onClick={() => setNavOpen((open) => !open)}
+            >
+              ☰
+            </button>
+            <div className="mobile-brand">DevOps Portal</div>
           </div>
-          <button className="btn btn-sm" onClick={() => logout()}>
-            Log out
-          </button>
+          <div className="topbar-right">
+            <DownContainersAlert />
+            <div className="topbar-user">
+              <span>{user?.name}</span>
+              <span className={`badge badge-${user?.role}`}>{user?.role}</span>
+            </div>
+            <button className="btn btn-sm" onClick={() => logout()}>
+              Log out
+            </button>
+          </div>
         </header>
         <main className="main">
           <Outlet />

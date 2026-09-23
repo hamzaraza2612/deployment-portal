@@ -16,15 +16,45 @@ function parseLineTimestamp(line: string): Date | null {
   return m ? new Date(m[1]) : null;
 }
 
-function withMarker(lines: string[], markedAt: Date | null): string[] {
-  if (!markedAt) return lines;
-  const idx = lines.findIndex((line) => {
-    const t = parseLineTimestamp(line);
-    return t !== null && t.getTime() > markedAt.getTime();
-  });
-  if (idx === -1) return lines;
-  const divider = `────────── marked at ${markedAt.toLocaleTimeString()} — new lines below ──────────`;
-  return [...lines.slice(0, idx), divider, ...lines.slice(idx)];
+const MARKER_PREFIX = "────────── mark";
+
+function isMarkerLine(line: string): boolean {
+  return line.startsWith(MARKER_PREFIX);
+}
+
+interface LogMark {
+  id: number;
+  at: Date;
+}
+
+/**
+ * Inserts one divider per mark, each at the point in `lines` matching its own timestamp —
+ * every "Mark now" click stays visible as its own divider (never replaced by the next one),
+ * so repeated testing shows each hit's own before/after. A mark with nothing newer yet sorts
+ * to the very end; several such marks keep the order they were clicked in.
+ */
+function withMarkers(lines: string[], marks: LogMark[]): string[] {
+  if (marks.length === 0) return lines;
+  const placed = marks
+    .map((m) => {
+      const idx = lines.findIndex((line) => {
+        const t = parseLineTimestamp(line);
+        return t !== null && t.getTime() > m.at.getTime();
+      });
+      const text = `${MARKER_PREFIX} #${m.id} at ${m.at.toLocaleTimeString()} — new lines below ──────────`;
+      return { idx: idx === -1 ? lines.length : idx, at: m.at.getTime(), text };
+    })
+    .sort((a, b) => a.idx - b.idx || a.at - b.at);
+
+  const result: string[] = [];
+  let cursor = 0;
+  for (const p of placed) {
+    result.push(...lines.slice(cursor, p.idx));
+    result.push(p.text);
+    cursor = p.idx;
+  }
+  result.push(...lines.slice(cursor));
+  return result;
 }
 
 export function ContainerLogs() {
@@ -39,7 +69,8 @@ export function ContainerLogs() {
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-  const [markedAt, setMarkedAt] = useState<Date | null>(null);
+  const [marks, setMarks] = useState<LogMark[]>([]);
+  const nextMarkId = useRef(1);
   const logViewerRef = useRef<HTMLDivElement>(null);
 
   function load() {
@@ -70,18 +101,33 @@ export function ContainerLogs() {
     const filtered = search.trim()
       ? rawLines.filter((line) => line.toLowerCase().includes(search.trim().toLowerCase()))
       : rawLines;
-    return withMarker(filtered, markedAt);
-  }, [log, search, markedAt]);
+    return withMarkers(filtered, marks);
+  }, [log, search, marks]);
 
   useEffect(() => {
     const el = logViewerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [displayedLines]);
 
+  // Anchored to the last line's own --timestamps value, not the browser's clock — the
+  // container's clock (on whatever server it runs on) is what every log line is actually
+  // stamped with, and it won't line up with the browser's clock if the two drift at all.
+  // Every call adds a new mark rather than replacing the last one, so each "Mark now" click
+  // keeps its own divider — handy for testing several hits in a row without losing earlier ones.
+  function mark() {
+    const rawLines = log.split("\n");
+    let at: Date | null = null;
+    for (let i = rawLines.length - 1; i >= 0; i--) {
+      at = parseLineTimestamp(rawLines[i]);
+      if (at) break;
+    }
+    setMarks((prev) => [...prev, { id: nextMarkId.current++, at: at ?? new Date() }]);
+  }
+
   function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault();
-      setMarkedAt(new Date());
+      mark();
     }
   }
 
@@ -119,12 +165,12 @@ export function ContainerLogs() {
         <button className="btn btn-sm" onClick={load} disabled={loading}>
           {loading ? "Refreshing…" : "Refresh now"}
         </button>
-        <button className="btn btn-sm" onClick={() => setMarkedAt(new Date())}>
+        <button className="btn btn-sm" onClick={mark}>
           Mark now
         </button>
-        {markedAt && (
-          <button className="btn btn-sm" onClick={() => setMarkedAt(null)}>
-            Clear mark
+        {marks.length > 0 && (
+          <button className="btn btn-sm" onClick={() => setMarks([])}>
+            Clear marks ({marks.length})
           </button>
         )}
       </div>
@@ -140,7 +186,19 @@ export function ContainerLogs() {
         ref={logViewerRef}
         style={{ flex: 1, minHeight: 0, maxHeight: "none" }}
       >
-        {displayedLines.join("\n") || (search ? `No lines match "${search}".` : "No log output.")}
+        {displayedLines.length === 0
+          ? search
+            ? `No lines match "${search}".`
+            : "No log output."
+          : displayedLines.map((line, i) =>
+              isMarkerLine(line) ? (
+                <div key={i} className="log-marker">
+                  {line}
+                </div>
+              ) : (
+                <div key={i}>{line || " "}</div>
+              )
+            )}
       </div>
     </div>
   );
