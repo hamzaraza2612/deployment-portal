@@ -65,11 +65,15 @@ in its own full-page tab (`/environments/:serverId/containers/:id/logs`),
 not a small popup — auto-refreshing every 3 seconds, with a selectable
 tail length and a text filter over the displayed lines. Press **Enter**
 in the search box (or click "Mark now") to drop a divider at that point
-in the log, based on each line's own `--timestamps` prefix rather than
-text position — so it stays correctly placed even though every refresh
-re-fetches the whole tail window instead of appending. Anything logged
-after you hit Enter shows up below the divider, making it easy to see
-what's new since you started watching.
+in the log — each click adds its own divider rather than replacing the
+last one, so testing several actions in a row keeps every earlier mark
+visible ("Clear marks" removes them all at once). A mark is anchored to
+the log's own last `--timestamps` line, not the browser's clock, so it's
+placed correctly even if the server's clock and the browser's have
+drifted apart; it shows up immediately (at the bottom if nothing's newer
+yet) rather than staying invisible until new output actually arrives.
+Anything logged after a mark shows up below its divider, making it easy
+to see what's new since that point.
 
 The **Deploy** wizard's branch and application pickers are searchable
 (type to filter, matched against the full list fetched from the server)
@@ -229,6 +233,19 @@ skipped rather than shown as an error, since this is a best-effort status
 check, not a deploy-critical one. A badge shows the total count; opening it
 lists which server and which container, grouped by server, with a link to
 **Environments** to act on it.
+
+## Mobile
+
+The whole portal is responsive down to phone width (~380px), not just a
+few pages. Under ~860px wide, the sidebar becomes a slide-out drawer
+(opened with the ☰ button in the top bar, closed by tapping the
+backdrop or picking a page) instead of a fixed 230px column eating into
+content width; the top bar compacts (drops the signed-in name, keeps the
+role badge); wide tables scroll horizontally inside their own card
+instead of blowing out the page; and row action buttons wrap instead of
+forcing a table to scroll just to reach the last button. Everything is
+one shared layout and CSS, so this applies to every page (Environments,
+Audit Logs, Repositories, …) rather than needing a per-page fix.
 
 ## Architecture
 
