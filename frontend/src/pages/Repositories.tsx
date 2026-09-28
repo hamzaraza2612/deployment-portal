@@ -216,11 +216,12 @@ export function Repositories() {
               width: "100%",
               alignItems: "center",
               justifyContent: "space-between",
+              gap: 14,
               cursor: "pointer",
               boxSizing: "border-box",
             }}
           >
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <strong>Git Credentials</strong>
               <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>
                 {credentials.length > 0
@@ -229,7 +230,10 @@ export function Repositories() {
                   : "Save a username/token once per git host so adding a repository on it won't ask again."}
               </div>
             </div>
-            <span className="muted" style={{ fontSize: 22, lineHeight: 1, fontWeight: 300 }}>
+            <span
+              className="muted"
+              style={{ fontSize: 22, lineHeight: 1, fontWeight: 300, flexShrink: 0 }}
+            >
               {credPanelOpen ? "−" : "+"}
             </span>
           </button>

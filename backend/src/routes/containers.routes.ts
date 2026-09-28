@@ -61,16 +61,17 @@ containersRouter.post(
     const action = String(req.body?.action ?? "");
     const server = await loadAccessibleServer(req.user!, req.params.serverId);
     const containerId = req.params.containerId;
+    const containerLabel = String(req.body?.containerName ?? "").trim() || containerId;
 
     if (action === "recreate") {
       const output = await recreateContainer(server, containerId);
-      recordAudit(req.user!, "container.recreate", `Recreated container ${containerId} on ${server.name}`);
+      recordAudit(req.user!, "container.recreate", `Recreated container ${containerLabel} on ${server.name}`);
       res.json({ ok: true, output });
       return;
     }
     if (action === "start" || action === "stop" || action === "restart") {
       const output = await runContainerAction(server, containerId, action);
-      recordAudit(req.user!, `container.${action}`, `${action} container ${containerId} on ${server.name}`);
+      recordAudit(req.user!, `container.${action}`, `${action} container ${containerLabel} on ${server.name}`);
       res.json({ ok: true, output });
       return;
     }

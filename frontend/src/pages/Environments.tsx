@@ -132,7 +132,10 @@ function ServerContainers({ server }: { server: ServerRecord }) {
     setBusyId(container.id);
     setError(null);
     try {
-      await api.post(`/servers/${server.id}/containers/${container.id}/action`, { action });
+      await api.post(`/servers/${server.id}/containers/${container.id}/action`, {
+        action,
+        containerName: container.name,
+      });
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : `Failed to ${action} ${container.name}`);
