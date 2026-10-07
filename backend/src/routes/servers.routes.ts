@@ -9,7 +9,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { canAccessEnvironment, serverEnvironmentFilter } from "../lib/access";
 import { createServerSchema, updateServerSchema } from "../validators/schemas";
 import { getSystemStats } from "../services/system.service";
-import { getVmServiceStatus } from "../services/vmservices.service";
+import { controlVmService, getVmServiceLogs, getVmServiceStatus } from "../services/vmservices.service";
 import type { ServerConnectionInfo } from "../lib/ssh";
 
 export const serversRouter = Router();
@@ -228,6 +228,38 @@ serversRouter.get(
     }
     const services = await getVmServiceStatus(server);
     res.json(services);
+  })
+);
+
+serversRouter.post(
+  "/:id/vm-services/:name/action",
+  requireRole("ADMIN"),
+  asyncHandler(async (req, res) => {
+    const server = await prisma.server.findUniqueOrThrow({ where: { id: req.params.id } });
+    if (!canAccessEnvironment(req.user!, server.environment)) {
+      throw new HttpError(404, "Server not found");
+    }
+    const action = String(req.body?.action ?? "");
+    if (action !== "start" && action !== "stop") {
+      throw new HttpError(400, "action must be start or stop");
+    }
+    const output = await controlVmService(server, req.params.name, action);
+    recordAudit(req.user!, `service.${action}`, `${action} service ${req.params.name} on ${server.name}`);
+    res.json({ ok: true, output });
+  })
+);
+
+serversRouter.get(
+  "/:id/vm-services/:name/logs",
+  requireRole("ADMIN"),
+  asyncHandler(async (req, res) => {
+    const server = await prisma.server.findUniqueOrThrow({ where: { id: req.params.id } });
+    if (!canAccessEnvironment(req.user!, server.environment)) {
+      throw new HttpError(404, "Server not found");
+    }
+    const lines = Number(req.query.lines ?? 200);
+    const log = await getVmServiceLogs(server, req.params.name, lines);
+    res.json({ log });
   })
 );
 

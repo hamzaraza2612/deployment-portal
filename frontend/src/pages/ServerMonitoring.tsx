@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../lib/api";
 import type { ServerRecord, SystemStats, VmServiceStatus } from "../lib/types";
+import { useConfirm } from "../hooks/useConfirm";
+
+// Only these are backed by a known systemd unit we can safely start/stop/tail — Docker (the
+// daemon, not individual containers) is deliberately left out since stopping it would take
+// down every container on the box, not just a database.
+const CONTROLLABLE_SERVICES = new Set(["Redis", "PostgreSQL", "MSSQL", "MongoDB"]);
 
 const REFRESH_MS = 10000;
 const SERVICES_REFRESH_MS = 15000;
@@ -30,6 +36,9 @@ function formatServiceMem(kb: number | null): string {
 function VmServicesTable({ serverId }: { serverId: string }) {
   const [services, setServices] = useState<VmServiceStatus[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busyService, setBusyService] = useState<string | null>(null);
+  const { confirm, modal } = useConfirm();
 
   function load() {
     api
@@ -48,12 +57,40 @@ function VmServicesTable({ serverId }: { serverId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverId]);
 
+  function openLogs(name: string) {
+    const url = `/servers/${serverId}/vm-services/${encodeURIComponent(name)}/logs`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function runAction(name: string, action: "start" | "stop") {
+    if (action === "stop") {
+      const ok = await confirm(`Stop ${name}? Anything depending on it will lose its connection.`, {
+        title: "Stop service",
+        confirmLabel: "Stop",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    setBusyService(name);
+    setActionError(null);
+    try {
+      await api.post(`/servers/${serverId}/vm-services/${encodeURIComponent(name)}/action`, { action });
+      load();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : `Failed to ${action} ${name}`);
+    } finally {
+      setBusyService(null);
+    }
+  }
+
   return (
     <div style={{ marginTop: 16 }}>
       <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
-        Common services (auto-detected — systemd, then well-known port, then process name)
+        Common services (auto-detected — systemd, then well-known port, then process name). Start/stop and
+        logs are only available for the systemd-managed database services.
       </div>
       {error && <div className="alert alert-error">{error}</div>}
+      {actionError && <div className="alert alert-error">{actionError}</div>}
       {!error && services === null && <div className="empty-state">Checking services…</div>}
       {services && (
         <table>
@@ -64,25 +101,58 @@ function VmServicesTable({ serverId }: { serverId: string }) {
               <th>Detected via</th>
               <th>CPU</th>
               <th>Memory</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {services.map((s) => (
-              <tr key={s.name}>
-                <td>{s.name}</td>
-                <td>
-                  <span className={`badge ${s.running ? "badge-SUCCESS" : "badge-FAILED"}`}>
-                    {s.running ? "Running" : "Not found"}
-                  </span>
-                </td>
-                <td className="muted">{s.running ? s.method : "—"}</td>
-                <td className="muted">{s.cpuPercent != null ? `${s.cpuPercent}%` : "—"}</td>
-                <td className="muted">{formatServiceMem(s.memKb)}</td>
-              </tr>
-            ))}
+            {services.map((s) => {
+              const controllable = CONTROLLABLE_SERVICES.has(s.name) && s.method === "systemd";
+              const busy = busyService === s.name;
+              return (
+                <tr key={s.name}>
+                  <td>{s.name}</td>
+                  <td>
+                    <span className={`badge ${s.running ? "badge-SUCCESS" : "badge-FAILED"}`}>
+                      {s.running ? "Running" : "Not found"}
+                    </span>
+                  </td>
+                  <td className="muted">{s.running ? s.method : "—"}</td>
+                  <td className="muted">{s.cpuPercent != null ? `${s.cpuPercent}%` : "—"}</td>
+                  <td className="muted">{formatServiceMem(s.memKb)}</td>
+                  <td>
+                    {controllable ? (
+                      <div className="row-actions">
+                        <button
+                          className="btn btn-sm"
+                          disabled={busy || s.running}
+                          onClick={() => runAction(s.name, "start")}
+                        >
+                          Start
+                        </button>
+                        <button
+                          className="btn btn-sm"
+                          disabled={busy || !s.running}
+                          onClick={() => runAction(s.name, "stop")}
+                        >
+                          Stop
+                        </button>
+                        <button className="btn btn-sm" onClick={() => openLogs(s.name)}>
+                          Logs
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="muted" style={{ fontSize: 12.5 }}>
+                        Not controllable
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
+      {modal}
     </div>
   );
 }
