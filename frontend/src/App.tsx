@@ -11,6 +11,7 @@ import { Deploy } from "./pages/Deploy";
 import { History } from "./pages/History";
 import { DeploymentDetail } from "./pages/DeploymentDetail";
 import { ContainerLogs } from "./pages/ContainerLogs";
+import { ServiceLogs } from "./pages/ServiceLogs";
 import { Links } from "./pages/Links";
 import { Monitoring } from "./pages/Monitoring";
 import { Promotions } from "./pages/Promotions";
@@ -47,6 +48,14 @@ export default function App() {
         element={
           <RequireAuth>
             <ContainerLogs />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/servers/:serverId/vm-services/:name/logs"
+        element={
+          <RequireAuth roles={["ADMIN"]}>
+            <ServiceLogs />
           </RequireAuth>
         }
       />

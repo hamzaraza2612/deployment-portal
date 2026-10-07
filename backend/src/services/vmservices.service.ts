@@ -1,5 +1,5 @@
 import type { Server } from "@prisma/client";
-import { execScript } from "../lib/ssh";
+import { execScript, shQuote } from "../lib/ssh";
 import { HttpError } from "../middleware/errorHandler";
 import { toConnectionInfo } from "./deploy.service";
 
@@ -95,4 +95,69 @@ export async function getVmServiceStatus(server: Server): Promise<VmServiceStatu
   }
 
   return services;
+}
+
+// Only database services can be controlled from the portal — not Docker, since stopping the
+// daemon itself would take down every container on the box. These are the same unit-name
+// candidates `check_service` above probes for each one, kept in one place so start/stop/logs
+// agree with detection about what "PostgreSQL" etc. actually means on a given distro.
+const CONTROLLABLE_SERVICE_UNITS: Record<string, string[]> = {
+  Redis: ["redis", "redis-server"],
+  PostgreSQL: ["postgresql"],
+  MSSQL: ["mssql-server"],
+  MongoDB: ["mongod"],
+};
+
+function unitsFor(serviceName: string): string[] {
+  const units = CONTROLLABLE_SERVICE_UNITS[serviceName];
+  if (!units) {
+    throw new HttpError(
+      400,
+      `"${serviceName}" can't be controlled from here — only Redis, PostgreSQL, MSSQL, and MongoDB can.`
+    );
+  }
+  return units;
+}
+
+// Tries each known unit-name candidate in turn and acts on the first one that's actually
+// installed on this server, rather than trusting a unit name from the request — the service
+// name is the only thing the client ever supplies.
+function firstInstalledUnitScript(units: string[], onFound: string): string {
+  return `
+for unit in ${units.map(shQuote).join(" ")}; do
+  if systemctl cat "$unit" >/dev/null 2>&1; then
+    ${onFound}
+    exit 0
+  fi
+done
+echo "No systemd unit found for this service on this server" >&2
+exit 1
+`.trim();
+}
+
+export async function controlVmService(
+  server: Server,
+  serviceName: string,
+  action: "start" | "stop"
+): Promise<string> {
+  const units = unitsFor(serviceName);
+  const info = toConnectionInfo(server);
+  const script = firstInstalledUnitScript(units, `systemctl ${action} "$unit" && echo "OK:$unit"`);
+  const result = await execScript(info, script);
+  if (result.code !== 0) {
+    throw new HttpError(502, `Failed to ${action} ${serviceName}: ${result.stderr || result.stdout}`);
+  }
+  return result.stdout.trim();
+}
+
+export async function getVmServiceLogs(server: Server, serviceName: string, tailLines: number): Promise<string> {
+  const units = unitsFor(serviceName);
+  const clamped = Math.min(Math.max(Math.trunc(tailLines) || 200, 20), 2000);
+  const info = toConnectionInfo(server);
+  const script = firstInstalledUnitScript(units, `journalctl -u "$unit" -n ${clamped} --no-pager 2>&1`);
+  const result = await execScript(info, script);
+  if (result.code !== 0 && !result.stdout.trim()) {
+    throw new HttpError(502, `Failed to read logs: ${result.stderr || result.stdout}`);
+  }
+  return result.stdout;
 }
